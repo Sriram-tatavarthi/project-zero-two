@@ -10,7 +10,7 @@ import os
 import pypdf
 
 # --- 1. SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="Project Zero Two: MK XVI", page_icon="logo.jpg", layout="wide")
+st.set_page_config(page_title="Project Zero Two: MK XVII", page_icon="logo.jpg", layout="wide")
 
 # --- 2. PROFESSIONAL EDTECH THEME ---
 st.markdown("""
@@ -119,12 +119,13 @@ PROFILE_FILE = "user_profile.json"
 try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Using the specific stable version
-model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        # FIXED: Correct placement of try/except block
+        model = genai.GenerativeModel('gemini-1.5-flash')
         api_status = True
     else:
         api_status = False
-except:
+except Exception as e:
+    # This catches the error so the app doesn't crash
     api_status = False
 
 def calculate_metrics(df, target_exam):
@@ -378,4 +379,3 @@ else:
             with st.chat_message("assistant"):
                 res = model.generate_content(f"Act as academic advisor Zero Two. Goal: {target}. User: {q}")
                 st.write(res.text)
-
