@@ -7,50 +7,49 @@ import plotly.graph_objects as go
 import time
 import json
 import os
-import pypdf
 
 # --- 1. SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="Project Zero Two", page_icon="logo.jpg", layout="wide")
 
-# --- 2. THEME ENGINE (GLOBAL SCOPE) ---
-# We define this function, but we will call it SAFELY later
-def get_theme_styles(theme_name):
+# --- 2. GLOBAL THEME ENGINE (FIXED SCOPE) ---
+# This runs immediately to ensure variables exist for graphs
+if 'theme_choice' not in st.session_state:
+    st.session_state['theme_choice'] = "Zero Two (Dark)"
+
+def get_theme_vars(theme_name):
     if theme_name == "Zero Two (Dark)":
-        css = """
-        <style>
-            .stApp { background-color: #050505; color: #e0e0e0; }
-            h1, h2, h3 { 
-                background: -webkit-linear-gradient(0deg, #ff003c, #ff80ab);
-                -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                font-family: 'Helvetica Neue', sans-serif; font-weight: 800;
-            }
-            div[data-testid="stMetricValue"] { color: #ff003c; }
-            .stButton>button { color: #ff003c; border: 1px solid #ff003c; background: #1a0b0e; }
-            div[data-testid="stContainer"] { border: 1px solid #333; background-color: #0a0a0a; border-radius: 10px; padding: 15px; }
-            .report-box { border-left: 4px solid #ff003c; background: rgba(255, 0, 60, 0.1); padding: 15px; }
-        </style>
-        """
-        return css, "plotly_dark", "#ffffff", "#ff003c"
+        return {
+            "bg": "#050505", "text": "#e0e0e0", "accent": "#ff003c",
+            "graph_temp": "plotly_dark", "graph_text": "white", "graph_line": "#ff003c"
+        }
     else:
-        css = """
-        <style>
-            .stApp { background-color: #ffffff; color: #111; }
-            h1, h2, h3 { 
-                background: -webkit-linear-gradient(0deg, #0984e3, #00cec9);
-                -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                font-family: 'Verdana', sans-serif; font-weight: 700;
-            }
-            div[data-testid="stMetricValue"] { color: #0984e3; }
-            .stButton>button { color: white; border: none; background: linear-gradient(90deg, #0984e3, #00cec9); }
-            div[data-testid="stContainer"] { border: 1px solid #e0e0e0; background-color: #f9f9f9; border-radius: 10px; padding: 15px; }
-            .report-box { border-left: 4px solid #0984e3; background: rgba(9, 132, 227, 0.1); padding: 15px; }
-        </style>
-        """
-        return css, "plotly_white", "#000000", "#0984e3"
+        return {
+            "bg": "#ffffff", "text": "#111111", "accent": "#0984e3",
+            "graph_temp": "plotly_white", "graph_text": "black", "graph_line": "#0984e3"
+        }
+
+theme = get_theme_vars(st.session_state['theme_choice'])
+
+# Apply CSS
+st.markdown(f"""
+<style>
+    .stApp {{ background-color: {theme['bg']}; color: {theme['text']}; }}
+    h1, h2, h3 {{ 
+        background: -webkit-linear-gradient(0deg, {theme['accent']}, #888);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        font-family: 'Helvetica Neue', sans-serif; font-weight: 800;
+    }}
+    div[data-testid="stMetricValue"] {{ color: {theme['accent']}; }}
+    .stButton>button {{ color: {theme['accent']}; border: 1px solid {theme['accent']}; background: transparent; }}
+    div[data-testid="stContainer"] {{ border: 1px solid #333; background-color: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; }}
+    /* Custom Checkbox Style */
+    .stCheckbox label {{ color: {theme['text']}; font-weight: bold; }}
+</style>
+""", unsafe_allow_html=True)
 
 # --- 3. MASTER DATA ---
 def get_syllabus_data(exam_type):
-    # YOUR ACCURATE LIST
+    # ACCURATE SYLLABUS LIST
     syllabus = [
         {"Subject": "Physics", "Chapter": "Units & Dimensions", "Weightage": "Low"},
         {"Subject": "Physics", "Chapter": "Experimental Physics", "Weightage": "High"},
@@ -119,7 +118,6 @@ api_status = False
 def init_ai():
     if "GEMINI_API_KEY" not in st.secrets: return None, False
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # 2.0 Flash is in your list, prioritizing it
     candidates = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"]
     for m in candidates:
         try:
@@ -165,65 +163,27 @@ def load_profile():
         with open(PROFILE_FILE, 'r') as f: return json.load(f)
     return None
 
-def save_profile(target, df_data, schedule_text="", history=None, mistakes=None):
+def save_profile(target, df_data, daily_tasks=None, history=None, mistakes=None):
     if history is None:
         existing = load_profile()
         history = existing.get('history', []) if existing else []
     if mistakes is None:
         existing = load_profile()
         mistakes = existing.get('mistakes', []) if existing else []
+    if daily_tasks is None:
+        existing = load_profile()
+        daily_tasks = existing.get('daily_tasks', []) if existing else []
         
     data = {
         "target": target, 
         "syllabus_data": df_data.to_dict('records'), 
         "history": history,
         "mistakes": mistakes,
-        "schedule_text": schedule_text,
+        "daily_tasks": daily_tasks,
         "setup_complete": True
     }
     with open(PROFILE_FILE, 'w') as f: json.dump(data, f)
     return data
-
-def ai_process_log(text, current_syllabus):
-    valid_chaps = [x['Chapter'] for x in current_syllabus]
-    prompt = f"Analyze: '{text}'. Match to: {valid_chaps}. Return valid JSON list: [{{'Chapter': 'Name', 'Status': 'Mastered'}}]"
-    try:
-        response = model.generate_content(prompt)
-        clean = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean)
-    except: return []
-
-# --- 5. ROBUST PDF PARSER (DD.MM.YYYY FIX) ---
-def parse_schedule_pdf(uploaded_file):
-    try:
-        reader = pypdf.PdfReader(uploaded_file)
-        text = ""
-        for page in reader.pages: text += page.extract_text()
-        
-        # Indian Date Format Fix
-        today = datetime.datetime.now().strftime("%d.%m.%Y") # e.g., 01.12.2025
-        
-        prompt = f"""
-        You are a Schedule Analyzer.
-        TODAY'S DATE: {today}
-        
-        DOCUMENT CONTENT: {text[:7000]}
-        
-        INSTRUCTIONS:
-        1. Search specifically for the row starting with {today}.
-        2. Extract the TOPICS for Physics, Chemistry, Maths for that date.
-        3. Search for "WTM", "CTM", "Grand Test" in the next 7 rows/days.
-        
-        OUTPUT FORMAT (Bullet points):
-        **Today's Missions ({today}):**
-        * [Subject]: [Topic]
-        
-        **Battle Radar:**
-        * [Date] - [Exam Name]
-        """
-        response = model.generate_content(prompt)
-        return response.text
-    except: return "Could not parse schedule."
 
 # --- 6. MAIN APPLICATION ---
 if 'user_profile' not in st.session_state:
@@ -253,7 +213,9 @@ else:
     df = pd.DataFrame(profile['syllabus_data'])
     history = profile.get('history', [])
     mistakes = profile.get('mistakes', [])
-    schedule_text = profile.get('schedule_text', "No schedule uploaded.")
+    # NEW: Manual Tasks List
+    if 'daily_tasks' not in st.session_state:
+        st.session_state['daily_tasks'] = profile.get('daily_tasks', [])
     
     readiness, est_score, target_marks = calculate_metrics(df, target)
     sub_breakdown = get_subject_breakdown(df)
@@ -261,39 +223,30 @@ else:
     today_str = str(date.today())
     if not history or history[-1]['date'] != today_str:
         history.append({"date": today_str, "score": readiness})
-        save_profile(target, df, schedule_text, history, mistakes)
+        save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
 
-    # --- SIDEBAR (THEME SELECTOR) ---
+    # SIDEBAR
     with st.sidebar:
         st.title("PROJECT 02")
-        # Theme Selector (Default Dark)
-        if 'theme' not in st.session_state: st.session_state['theme'] = "Zero Two (Dark)"
-        theme_choice = st.radio("Theme", ["Zero Two (Dark)", "EdTech (Light)"], key='theme_radio')
         
-        # APPLY THEME & GET COLORS (This fixes the NameError)
-        css_style, graph_template, text_col, line_col = get_theme_styles(theme_choice)
-        st.markdown(css_style, unsafe_allow_html=True)
-        
+        # THEME TOGGLE (Updates Session State -> Triggers Rerun)
+        new_theme = st.radio("Theme", ["Zero Two (Dark)", "EdTech (Light)"], index=0 if st.session_state['theme_choice'] == "Zero Two (Dark)" else 1)
+        if new_theme != st.session_state['theme_choice']:
+            st.session_state['theme_choice'] = new_theme
+            st.rerun()
+            
         st.divider()
-        uploaded_file = st.file_uploader("Schedule PDF", type="pdf")
-        if uploaded_file and api_status:
-            if st.button("Scan PDF"):
-                with st.spinner("Analyzing..."):
-                    schedule_text = parse_schedule_pdf(uploaded_file)
-                    save_profile(target, df, schedule_text, history, mistakes)
-                    st.rerun()
-        
-        if st.button("Reset App"):
+        if st.button("Reset App (Delete Data)"):
             os.remove(PROFILE_FILE)
             st.session_state['user_profile'] = None
             st.rerun()
 
-    # --- TABS ---
+    # TABS
     tab_home, tab_analytics, tab_syll, tab_mistakes, tab_ai = st.tabs(
         ["🏠 HOME", "📊 ANALYTICS", "📝 SYLLABUS", "🩸 MISTAKE AUTOPSY", "💬 ZERO TWO"]
     )
 
-    # TAB 1: HOME
+    # TAB 1: HOME (Manual Goals)
     with tab_home:
         with st.container():
             c1, c2, c3 = st.columns(3)
@@ -303,65 +256,75 @@ else:
         
         st.divider()
         
-        c_sch, c_log = st.columns([1, 1])
-        with c_sch:
-            st.subheader("📅 Briefing")
-            if "Battle" in schedule_text: st.warning("⚠️ BATTLE ALERT")
-            st.info(schedule_text)
-            
-        with c_log:
-            st.subheader("⌨️ Quick Log")
-            log_in = st.text_area("Update Progress", placeholder="I finished Electrostatics...")
-            if st.button("Update Status"):
-                if api_status:
-                    ups = ai_process_log(log_in, profile['syllabus_data'])
-                    if ups:
-                        for u in ups:
-                            df.loc[df['Chapter'].str.contains(u['Chapter'], case=False), 'Status'] = u['Status']
-                        save_profile(target, df, schedule_text, history, mistakes)
-                        st.success("Updated!")
-                        st.rerun()
+        # MANUAL MISSION CONTROL
+        st.subheader("📝 Mission Control (Daily Targets)")
+        
+        c_add, c_list = st.columns([1, 2])
+        
+        with c_add:
+            new_task = st.text_input("New Task", placeholder="Ex: Solve 20 Physics PYQs")
+            if st.button("Add Mission"):
+                if new_task:
+                    st.session_state['daily_tasks'].append({"task": new_task, "done": False})
+                    save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
+                    st.rerun()
+        
+        with c_list:
+            if st.session_state['daily_tasks']:
+                for i, t in enumerate(st.session_state['daily_tasks']):
+                    col_chk, col_del = st.columns([8, 1])
+                    with col_chk:
+                        # Checkbox updates state
+                        is_done = st.checkbox(t['task'], value=t['done'], key=f"task_{i}")
+                        if is_done != t['done']:
+                            st.session_state['daily_tasks'][i]['done'] = is_done
+                            save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
+                            st.rerun()
+                    with col_del:
+                        if st.button("✖", key=f"del_{i}"):
+                            st.session_state['daily_tasks'].pop(i)
+                            save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
+                            st.rerun()
+                
+                # Progress Bar for tasks
+                done_count = sum(1 for t in st.session_state['daily_tasks'] if t['done'])
+                total_count = len(st.session_state['daily_tasks'])
+                if total_count > 0:
+                    st.progress(done_count / total_count)
+                    st.caption(f"{done_count}/{total_count} Missions Complete")
+            else:
+                st.info("No active missions. Add one to begin.")
 
-    # TAB 2: ANALYTICS (VISIBILITY FIXED)
+    # TAB 2: ANALYTICS (Graphs with Global Colors)
     with tab_analytics:
         st.subheader("🚀 Goal Analysis")
-        
         c1, c2 = st.columns([2, 1])
         with c1:
-            # Goal Gap (Bar)
             fig_gap = go.Figure()
-            fig_gap.add_trace(go.Bar(y=['Score'], x=[est_score], name='You', orientation='h', marker_color=line_col))
+            fig_gap.add_trace(go.Bar(y=['Score'], x=[est_score], name='You', orientation='h', marker_color=theme['accent']))
             fig_gap.add_trace(go.Bar(y=['Score'], x=[target_marks], name='Target', orientation='h', marker_color='#888', opacity=0.5))
-            fig_gap.update_layout(template=graph_template, barmode='overlay', height=200, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=text_col))
+            fig_gap.update_layout(template=theme['graph_temp'], barmode='overlay', height=200, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=theme['graph_text']))
             st.plotly_chart(fig_gap, use_container_width=True)
-            
         with c2:
             st.warning(f"GAP: {target_marks - est_score} Marks")
             
         st.divider()
-        
-        # Pie Charts (Restored)
         st.subheader("🧠 Subject Breakdown")
         cp1, cp2, cp3 = st.columns(3)
         def donut(val, color):
-            # Safe Fallback if 0
             v_done = val if val > 0 else 0
-            v_left = 100 - v_done
-            return go.Figure(data=[go.Pie(values=[v_done, v_left], hole=.6, marker_colors=[color, '#333' if 'dark' in graph_template else '#eee'])]).update_layout(showlegend=False, height=150, margin=dict(t=0,b=0,l=0,r=0), paper_bgcolor='rgba(0,0,0,0)', font=dict(color=text_col))
+            return go.Figure(data=[go.Pie(values=[v_done, 100-v_done], hole=.6, marker_colors=[color, '#333' if 'dark' in theme['graph_temp'] else '#eee'])]).update_layout(showlegend=False, height=150, margin=dict(t=0,b=0,l=0,r=0), paper_bgcolor='rgba(0,0,0,0)', font=dict(color=theme['graph_text']))
         
-        with cp1: 
-            st.markdown("**Physics**"); st.plotly_chart(donut(sub_breakdown.get("Physics",0), "#007CF0"), use_container_width=True)
-        with cp2: 
-            st.markdown("**Chemistry**"); st.plotly_chart(donut(sub_breakdown.get("Chemistry",0), "#00DFD8"), use_container_width=True)
-        with cp3: 
-            st.markdown("**Maths**"); st.plotly_chart(donut(sub_breakdown.get("Maths",0), "#ff003c"), use_container_width=True)
+        with cp1: st.markdown("**Physics**"); st.plotly_chart(donut(sub_breakdown.get("Physics",0), "#007CF0"), use_container_width=True)
+        with cp2: st.markdown("**Chemistry**"); st.plotly_chart(donut(sub_breakdown.get("Chemistry",0), "#00DFD8"), use_container_width=True)
+        with cp3: st.markdown("**Maths**"); st.plotly_chart(donut(sub_breakdown.get("Maths",0), "#ff003c"), use_container_width=True)
 
         st.divider()
         st.subheader("📈 Consistency Tracker")
         if history:
             h_df = pd.DataFrame(history)
-            fig_line = go.Figure(go.Scatter(x=h_df['date'], y=h_df['score'], mode='lines+markers', line=dict(color=line_color)))
-            fig_line.update_layout(template=graph_template, height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=text_col))
+            fig_line = go.Figure(go.Scatter(x=h_df['date'], y=h_df['score'], mode='lines+markers', line=dict(color=theme['graph_line'])))
+            fig_line.update_layout(template=theme['graph_temp'], height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=theme['graph_text']))
             st.plotly_chart(fig_line, use_container_width=True)
 
     # TAB 3: SYLLABUS
@@ -382,7 +345,7 @@ else:
                 mask = (df['Subject'] == r['Subject']) & (df['Chapter'] == r['Chapter'])
                 df.loc[mask, 'Status'] = r['Status']
                 df.loc[mask, 'Confidence'] = r['Confidence']
-            save_profile(target, df, schedule_text, history, mistakes)
+            save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
             st.success("Saved!")
             st.rerun()
             
@@ -407,28 +370,35 @@ else:
             m_note = st.text_area("What went wrong?")
             if st.button("Log Error"):
                 mistakes.append({"date": str(date.today()), "subject": m_sub, "topic": m_topic, "type": m_type, "note": m_note})
-                save_profile(target, df, schedule_text, history, mistakes)
+                save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
                 st.rerun()
         
         if mistakes:
             m_df = pd.DataFrame(mistakes)
             st.dataframe(m_df, use_container_width=True)
-            # Pie Chart
             err_counts = m_df['type'].value_counts()
             fig_err = go.Figure(data=[go.Pie(labels=err_counts.index, values=err_counts.values, hole=.5)])
-            fig_err.update_layout(template=graph_template, height=250, paper_bgcolor='rgba(0,0,0,0)', font=dict(color=text_col))
+            fig_err.update_layout(template=theme['graph_temp'], height=250, paper_bgcolor='rgba(0,0,0,0)', font=dict(color=theme['graph_text']))
             st.plotly_chart(fig_err, use_container_width=True)
         else:
             st.info("No mistakes logged yet.")
 
-    # TAB 5: MENTOR
+    # TAB 5: MENTOR (Zero Two Aware)
     with tab_ai:
         st.subheader("💬 Zero Two")
         q = st.chat_input("Ask strategy...")
         if q and api_status:
             with st.chat_message("user"): st.write(q)
             with st.chat_message("assistant"):
+                # Enhanced Context for AI
+                context = f"""
+                User Status:
+                - Exam Goal: {target}
+                - Readiness Score: {readiness}%
+                - Weakest Subject: {min(sub_breakdown, key=sub_breakdown.get)} ({min(sub_breakdown.values())}%)
+                - Recent Mistakes: {len(mistakes)} logged.
+                """
                 try:
-                    res = model.generate_content(f"Act as academic strategist Zero Two. Goal: {target}. User: {q}")
+                    res = model.generate_content(f"Act as academic strategist Zero Two. {context}. User: {q}")
                     st.write(res.text)
                 except: st.error("AI Error")
