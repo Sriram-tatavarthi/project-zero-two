@@ -7,9 +7,10 @@ import plotly.graph_objects as go
 import time
 import json
 import os
+import pypdf
 
 # --- 1. SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="Project Zero Two: MK IX", page_icon="🔴", layout="wide")
+st.set_page_config(page_title="Project Zero Two: MK X", page_icon="🔴", layout="wide")
 
 # --- 2. THEME & CSS ---
 st.markdown("""
@@ -39,8 +40,6 @@ def get_syllabus_data(exam_type):
     """Returns the specific chapter list and weightage for the selected exam."""
     
     # CORE LIST (Common to JEE Main/Advanced)
-    # Weightage Logic: 3 (High), 2 (Avg), 1 (Low)
-    
     core_physics = [
         {"Subject": "Physics", "Chapter": "Modern Physics", "Weightage": "High"},
         {"Subject": "Physics", "Chapter": "Current Electricity", "Weightage": "High"},
@@ -52,7 +51,7 @@ def get_syllabus_data(exam_type):
         {"Subject": "Physics", "Chapter": "Gravitation", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Work, Energy, Power", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Laws of Motion", "Weightage": "Low"},
-        {"Subject": "Physics", "Chapter": "Semiconductors", "Weightage": "Avg"}, # High for Main, Low for Adv
+        {"Subject": "Physics", "Chapter": "Semiconductors", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "AC & EMI", "Weightage": "Avg"}
     ]
     
@@ -84,9 +83,7 @@ def get_syllabus_data(exam_type):
     base_syllabus = core_physics + core_chem + core_maths
 
     # --- EXAM SPECIFIC ADJUSTMENTS ---
-    
     if exam_type == "AP EAPCET 2026":
-        # ADD BACK DELETED CHAPTERS for State Exams
         extras = [
             {"Subject": "Chemistry", "Chapter": "Solid State", "Weightage": "Avg"},
             {"Subject": "Chemistry", "Chapter": "Surface Chemistry", "Weightage": "Low"},
@@ -100,15 +97,13 @@ def get_syllabus_data(exam_type):
         return base_syllabus + extras
 
     elif exam_type == "JEE Advanced 2026":
-        # Advanced specific weighting (Semiconductors is low weight, Rotation is Ultra High)
-        # We modify the base list
         for item in base_syllabus:
-            if item['Chapter'] == "Rotational Motion": item['Weightage'] = "High" # Very High
-            if item['Chapter'] == "Semiconductors": item['Weightage'] = "Low" # Less imp for Adv
+            if item['Chapter'] == "Rotational Motion": item['Weightage'] = "High" 
+            if item['Chapter'] == "Semiconductors": item['Weightage'] = "Low" 
             if item['Chapter'] == "Complex Numbers": item['Weightage'] = "High"
         return base_syllabus
 
-    else: # JEE Main 2026 (Reduced Syllabus)
+    else: # JEE Main 2026
         return base_syllabus
 
 PROFILE_FILE = "user_profile.json"
@@ -126,14 +121,10 @@ except:
 
 # --- 5. LOGIC & SCORING ---
 def calculate_metrics(df, exam):
-    # Weightage Multipliers
     w_vals = {"High": 3, "Avg": 2, "Low": 1}
-    
     df['W_Score'] = df['Weightage'].map(w_vals)
     df['Earned'] = 0.0
     
-    # Status Multipliers
-    # Mastered=1.0, Rev 2=0.8, Rev 1=0.5
     for i, row in df.iterrows():
         val = 0.0
         if row['Status'] == 'Mastered': val = 1.0
@@ -143,7 +134,6 @@ def calculate_metrics(df, exam):
         
     total_score = df['W_Score'].sum()
     my_score = df['Earned'].sum()
-    
     readiness = int((my_score / total_score) * 100) if total_score > 0 else 0
     return readiness
 
@@ -162,13 +152,10 @@ def save_profile(target, df_data):
     return data
 
 def ai_process_log(text, current_syllabus):
-    # AI needs to know valid chapters for THIS specific exam
     valid_chaps = [x['Chapter'] for x in current_syllabus]
-    
     prompt = f"""
     Analyze: '{text}'. 
     Valid Chapters for this exam: {valid_chaps}
-    
     Task: Match user text to Valid Chapters.
     Return JSON: [{{'Chapter': 'Exact Name From List', 'Status': 'Mastered'}}]
     """
@@ -183,18 +170,16 @@ if 'user_profile' not in st.session_state:
     st.session_state['user_profile'] = load_profile()
 
 if not st.session_state['user_profile']:
-    st.title("🔴 MK IX INITIALIZATION")
+    st.title("🔴 MK X INITIALIZATION")
     st.markdown("### DYNAMIC CALIBRATION")
     
-    # 1. Select Exam
     target_sel = st.selectbox(
         "MISSION GOAL", 
         ["JEE Main 2026", "JEE Advanced 2026", "AP EAPCET 2026"],
         index=0
     )
     
-    # 2. Load Specific Chapters based on selection
-    # We use session state to persist the dataframe across reruns
+    # Load specific chapters
     if 'current_exam_wiz' not in st.session_state or st.session_state['current_exam_wiz'] != target_sel:
         raw_data = get_syllabus_data(target_sel)
         df_wiz = pd.DataFrame(raw_data)
@@ -204,16 +189,16 @@ if not st.session_state['user_profile']:
         st.session_state['current_exam_wiz'] = target_sel
         st.rerun() 
 
-    st.info(f"Loaded {len(st.session_state['wizard_df'])} chapters for {target_sel}. 'Solid State' etc. appear only for EAPCET.")
+    st.info(f"Loaded {len(st.session_state['wizard_df'])} chapters for {target_sel}.")
     
-    # 3. Editor
+    # --- FIXED COLUMN NAME HERE ---
     edited_df = st.data_editor(
         st.session_state['wizard_df'],
         use_container_width=True,
         column_config={
             "Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Revision 1", "Revision 2", "Mastered"]),
             "Weightage": st.column_config.TextColumn("Impact", disabled=True),
-            "Confidence": st.column_config.NumberColumn("Conf %", min_value=0, max_value=100)
+            "Confidence": st.column_config.NumberColumn("Confidence (%)", min_value=0, max_value=100)
         },
         height=400,
         hide_index=True
@@ -239,7 +224,6 @@ else:
         st.title("🔴 COMMANDER")
         st.caption(f"TARGET: {target}")
         
-        # Reset Logic
         if st.button("CHANGE MISSION (RESET)"):
             os.remove(PROFILE_FILE)
             st.session_state['user_profile'] = None
@@ -248,7 +232,6 @@ else:
         st.divider()
         uploaded_file = st.file_uploader("SCHEDULE PDF", type="pdf")
         
-        # Vitality Check
         st.divider()
         st.markdown("### VITALITY")
         energy = st.slider("Energy", 0, 100, 80)
@@ -267,7 +250,6 @@ else:
         
         st.progress(readiness/100)
         
-        # Dynamic Warning based on weightage
         high_risk = df[(df['Weightage'] == 'High') & (df['Status'] == 'Pending')]
         if not high_risk.empty:
             st.error(f"⚠️ You have {len(high_risk)} HIGH IMPACT chapters pending!")
@@ -291,13 +273,14 @@ else:
         
         fil_df = df[df['Subject'] == sub]
         
+        # --- FIXED COLUMN NAME HERE TOO ---
         ed_df = st.data_editor(
             fil_df,
             use_container_width=True,
             column_config={
                 "Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Revision 1", "Revision 2", "Mastered"]),
                 "Weightage": st.column_config.TextColumn("Impact", disabled=True),
-                "Confidence": st.column_config.NumberColumn("Conf %", min_value=0, max_value=100)
+                "Confidence": st.column_config.NumberColumn("Confidence (%)", min_value=0, max_value=100)
             },
             hide_index=True
         )
