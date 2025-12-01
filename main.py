@@ -2,37 +2,44 @@ import streamlit as st
 import google.generativeai as genai
 import os
 
-st.title("🔧 SYSTEM DIAGNOSTIC")
+st.title("🕵️ GOOGLE MODEL FINDER")
 
-# 1. Check if Key Exists
+# 1. Check Key
 if "GEMINI_API_KEY" in st.secrets:
-    st.success("✅ API Key found in Secrets")
-    my_key = st.secrets["GEMINI_API_KEY"]
-    st.write(f"Key starts with: `{my_key[:5]}...`") # Security check
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
     
-    # 2. Try Connecting
-    genai.configure(api_key=my_key)
-    
-    st.write("Attempting to contact Google AI...")
+    st.write("📡 Contacting Google API...")
     
     try:
-        # Try the oldest, most stable model first
-        model = genai.GenerativeModel('gemini-pro')
-        response = model.generate_content("Hello")
-        st.success(f"✅ SUCCESS! Google replied: {response.text}")
-        st.balloons()
+        # Ask Google what models this key can access
+        all_models = list(genai.list_models())
         
+        # Filter for models that can chat (generateContent)
+        chat_models = []
+        for m in all_models:
+            # We look for models that support 'generateContent'
+            if 'generateContent' in m.supported_generation_methods:
+                chat_models.append(m.name)
+        
+        if chat_models:
+            st.success(f"SUCCESS! Found {len(chat_models)} available models.")
+            st.write("### ✅ COPY ONE OF THESE EXACT NAMES:")
+            
+            for name in chat_models:
+                st.code(name)
+                
+            st.info("Paste the first model name in the chat with me, and I will fix your app immediately.")
+        else:
+            st.error("⚠️ Connection successful, but no Chat models were found for this API Key.")
+            st.write("Raw list of available models:")
+            st.json([m.name for m in all_models])
+            
     except Exception as e:
-        st.error("❌ CONNECTION CRASHED")
-        st.error(f"Error Details: {e}")
-        st.write("---")
-        st.write("### How to fix this error:")
-        err_text = str(e)
-        if "400" in err_text or "API key not valid" in err_text:
-            st.warning("👉 Your Key is WRONG. Generate a new one at aistudio.google.com")
-        elif "404" in err_text or "not found" in err_text:
-            st.warning("👉 The Model Name is wrong OR your account is region-locked.")
-        elif "quota" in err_text:
-            st.warning("👉 You hit the free limit. Wait a few minutes.")
+        st.error("❌ CRITICAL ERROR")
+        st.error(str(e))
+        st.write("If the error mentions '400' or 'Key', your API Key is still invalid.")
+
 else:
-    st.error("❌ No API Key found! Go to Manage App > Settings > Secrets.")
+    st.error("❌ API Key not found in Secrets. Please add GEMINI_API_KEY.")
+    
