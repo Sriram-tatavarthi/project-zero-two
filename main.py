@@ -1,45 +1,432 @@
 import streamlit as st
+import pandas as pd
+import datetime
+from datetime import date, timedelta
 import google.generativeai as genai
+import plotly.graph_objects as go
+import time
+import json
 import os
+import pypdf
 
-st.title("🕵️ GOOGLE MODEL FINDER")
+# --- 1. SYSTEM CONFIGURATION ---
+st.set_page_config(page_title="Project Zero Two: MK XXII", page_icon="logo.jpg", layout="wide")
 
-# 1. Check Key
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
+# --- 2. ZERO TWO THEME (BLACK & NEON RED) ---
+st.markdown("""
+<style>
+    /* VOID BLACK BACKGROUND */
+    .stApp { background-color: #050505; }
     
-    st.write("📡 Contacting Google API...")
+    /* NEON RED HEADERS */
+    h1, h2, h3, h4 { 
+        background: -webkit-linear-gradient(0deg, #ff003c, #ff80ab);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 2px;
+    }
     
+    /* METRICS */
+    div[data-testid="stMetricValue"] {
+        color: #ff003c; font-family: 'Courier New', monospace; text-shadow: 0 0 10px rgba(255, 0, 60, 0.4);
+    }
+    div[data-testid="stMetricLabel"] { color: #aaaaaa; }
+    
+    /* TABS */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1a0b0e; border: 1px solid #333; color: #fff;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        border-color: #ff003c; color: #ff003c;
+    }
+    
+    /* REPORT BOX */
+    .report-box {
+        border: 1px solid #ff003c; padding: 20px; border-radius: 5px;
+        background: rgba(255, 0, 60, 0.05); color: #ddd;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- 3. MASTER DATA ---
+def get_syllabus_data(exam_type):
+    # YOUR ACCURATE PDF SYLLABUS
+    syllabus = [
+        {"Subject": "Physics", "Chapter": "Units, Dimensions & Errors", "Weightage": "Low"},
+        {"Subject": "Physics", "Chapter": "Experimental Physics (Vernier/Screw Gauge)", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Kinematics", "Weightage": "Avg"},
+        {"Subject": "Physics", "Chapter": "Laws of Motion", "Weightage": "Avg"},
+        {"Subject": "Physics", "Chapter": "Work, Energy & Power", "Weightage": "Avg"},
+        {"Subject": "Physics", "Chapter": "Rotational Motion", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Gravitation", "Weightage": "Avg"},
+        {"Subject": "Physics", "Chapter": "Solids & Fluids", "Weightage": "Avg"},
+        {"Subject": "Physics", "Chapter": "Thermodynamics & KTG", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "SHM & Waves", "Weightage": "Avg"},
+        {"Subject": "Physics", "Chapter": "Electrostatics", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Current Electricity", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Magnetism", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "EMI & AC", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Optics (Ray & Wave)", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Modern Physics", "Weightage": "Avg"},
+        {"Subject": "Physics", "Chapter": "Semiconductors", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "Mole Concept", "Weightage": "Avg"},
+        {"Subject": "Chemistry", "Chapter": "Atomic Structure", "Weightage": "Avg"},
+        {"Subject": "Chemistry", "Chapter": "Chemical Bonding", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "Thermodynamics", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "Equilibrium", "Weightage": "Avg"},
+        {"Subject": "Chemistry", "Chapter": "Solutions", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "Electrochemistry", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "Kinetics", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "Inorganic (Block Elements)", "Weightage": "Avg"},
+        {"Subject": "Chemistry", "Chapter": "Coordination Compounds", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "GOC & Hydrocarbons", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "Haloalkanes/Haloarenes", "Weightage": "Avg"},
+        {"Subject": "Chemistry", "Chapter": "Oxygen Compounds", "Weightage": "High"},
+        {"Subject": "Chemistry", "Chapter": "Nitrogen Compounds", "Weightage": "Avg"},
+        {"Subject": "Chemistry", "Chapter": "Biomolecules", "Weightage": "Avg"},
+        {"Subject": "Chemistry", "Chapter": "POC & Titration", "Weightage": "Avg"},
+        {"Subject": "Maths", "Chapter": "Sets & Functions", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Complex Numbers", "Weightage": "Avg"},
+        {"Subject": "Maths", "Chapter": "Quadratic Eq", "Weightage": "Avg"},
+        {"Subject": "Maths", "Chapter": "Matrices & Det", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Permutations & Comb", "Weightage": "Avg"},
+        {"Subject": "Maths", "Chapter": "Binomial Theorem", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Sequence & Series", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Calculus (Diff)", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Calculus (Integral)", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Differential Eq", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Coordinate Geometry", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Vectors & 3D", "Weightage": "High"},
+        {"Subject": "Maths", "Chapter": "Probability", "Weightage": "Avg"},
+        {"Subject": "Maths", "Chapter": "Trigonometry", "Weightage": "Low"}
+    ]
+    if exam_type == "AP EAPCET 2026":
+        extras = [
+            {"Subject": "Chemistry", "Chapter": "Solid State", "Weightage": "Avg"},
+            {"Subject": "Chemistry", "Chapter": "Polymers", "Weightage": "Low"},
+            {"Subject": "Chemistry", "Chapter": "Everyday Life", "Weightage": "Low"}
+        ]
+        syllabus.extend(extras)
+    return syllabus
+
+PROFILE_FILE = "user_profile.json"
+
+# --- 4. API & LOGIC (UPDATED FOR YOUR MODELS) ---
+model = None
+api_status = False
+status_msg = "Initializing..."
+
+def init_ai():
+    if "GEMINI_API_KEY" not in st.secrets:
+        return None, False, "API Key Missing"
+    
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    
+    # YOUR EXACT MODEL LIST (Prioritizing 2.0 Flash)
+    candidates = [
+        "gemini-2.0-flash", 
+        "gemini-2.0-flash-exp", 
+        "gemini-2.5-flash",
+        "gemini-pro"
+    ]
+    
+    for m in candidates:
+        try:
+            test_model = genai.GenerativeModel(m)
+            # Lightweight test
+            test_model.generate_content("hi")
+            return test_model, True, f"Connected ({m})"
+        except:
+            continue 
+            
+    return None, False, "Connection Failed (Check Quota/Region)"
+
+# Initialize AI on load
+model, api_status, status_msg = init_ai()
+
+def calculate_metrics(df, target_exam):
+    w_vals = {"High": 3, "Avg": 2, "Low": 1}
+    df['W_Score'] = df['Weightage'].map(w_vals)
+    df['Earned'] = 0.0
+    for i, row in df.iterrows():
+        val = 0.0
+        if row['Status'] == 'Mastered': val = 1.0
+        elif row['Status'] == 'Revision 2': val = 0.8
+        elif row['Status'] == 'Revision 1': val = 0.5
+        df.at[i, 'Earned'] = val * row['W_Score']
+    total = df['W_Score'].sum()
+    earned = df['Earned'].sum()
+    readiness = int((earned/total)*100) if total > 0 else 0
+    
+    total_marks = 300 if "JEE" in target_exam else 160
+    target_marks = 240 if "JEE" in target_exam else 130
+    est_score = int(total_marks * (readiness / 100))
+    
+    if "JEE" in target_exam:
+        if est_score > 250: est_perc = "99.9%ile"
+        elif est_score > 200: est_perc = "99.5%ile"
+        elif est_score > 150: est_perc = "97.0%ile"
+        else: est_perc = "< 90%ile"
+    else:
+        est_perc = "Rank Based"
+        
+    return readiness, est_score, target_marks, est_perc
+
+def get_subject_breakdown(df):
+    data = {}
+    for sub in ["Physics", "Chemistry", "Maths"]:
+        sub_df = df[df['Subject'] == sub]
+        if not sub_df.empty:
+            w = sub_df['Weightage'].map({"High":3, "Avg":2, "Low":1}).sum()
+            e = 0
+            for _, r in sub_df.iterrows():
+                val = 0
+                if r['Status'] == 'Mastered': val = 1
+                elif r['Status'] == 'Revision 2': val = 0.8
+                elif r['Status'] == 'Revision 1': val = 0.5
+                e += val * (3 if r['Weightage']=='High' else 2 if r['Weightage']=='Avg' else 1)
+            data[sub] = int((e/w)*100) if w > 0 else 0
+    return data
+
+def load_profile():
+    if os.path.exists(PROFILE_FILE):
+        with open(PROFILE_FILE, 'r') as f: return json.load(f)
+    return None
+
+def save_profile(target, df_data, resources=None, schedule_text="", test_scores=None):
+    if resources is None:
+        existing = load_profile()
+        resources = existing.get('resources', []) if existing else []
+    if test_scores is None:
+        existing = load_profile()
+        test_scores = existing.get('test_scores', []) if existing else []
+    
+    data = {
+        "target": target, 
+        "syllabus_data": df_data.to_dict('records'), 
+        "resources": resources,
+        "test_scores": test_scores,
+        "schedule_text": schedule_text,
+        "setup_complete": True
+    }
+    with open(PROFILE_FILE, 'w') as f: json.dump(data, f)
+    return data
+
+def ai_process_log(text, current_syllabus):
+    valid_chaps = [x['Chapter'] for x in current_syllabus]
+    # Use JSON mode for safety
+    prompt = f"Analyze: '{text}'. Match to: {valid_chaps}. Return valid JSON list: [{{'Chapter': 'Name', 'Status': 'Mastered'}}]"
     try:
-        # Ask Google what models this key can access
-        all_models = list(genai.list_models())
-        
-        # Filter for models that can chat (generateContent)
-        chat_models = []
-        for m in all_models:
-            # We look for models that support 'generateContent'
-            if 'generateContent' in m.supported_generation_methods:
-                chat_models.append(m.name)
-        
-        if chat_models:
-            st.success(f"SUCCESS! Found {len(chat_models)} available models.")
-            st.write("### ✅ COPY ONE OF THESE EXACT NAMES:")
-            
-            for name in chat_models:
-                st.code(name)
-                
-            st.info("Paste the first model name in the chat with me, and I will fix your app immediately.")
-        else:
-            st.error("⚠️ Connection successful, but no Chat models were found for this API Key.")
-            st.write("Raw list of available models:")
-            st.json([m.name for m in all_models])
-            
-    except Exception as e:
-        st.error("❌ CRITICAL ERROR")
-        st.error(str(e))
-        st.write("If the error mentions '400' or 'Key', your API Key is still invalid.")
+        response = model.generate_content(prompt)
+        clean = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean)
+    except: return []
 
-else:
-    st.error("❌ API Key not found in Secrets. Please add GEMINI_API_KEY.")
+def parse_schedule_pdf(uploaded_file):
+    reader = pypdf.PdfReader(uploaded_file)
+    text = ""
+    for page in reader.pages: text += page.extract_text()
     
+    prompt = f"Find exams and key topics in this text for the next 7 days. Summarize briefly. Text: {text[:3000]}"
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except: return "Could not parse schedule."
+
+# --- 5. SETUP WIZARD ---
+if 'user_profile' not in st.session_state:
+    st.session_state['user_profile'] = load_profile()
+
+if not st.session_state['user_profile']:
+    st.title("🚀 SYSTEM INITIALIZATION")
+    target_sel = st.selectbox("Select Goal", ["JEE Main 2026", "JEE Advanced 2026", "AP EAPCET 2026"])
+    
+    if 'wizard_df' not in st.session_state or st.session_state.get('last_wiz_target') != target_sel:
+        raw_data = get_syllabus_data(target_sel)
+        df_wiz = pd.DataFrame(raw_data)
+        df_wiz['Status'] = 'Pending'
+        df_wiz['Confidence'] = 0
+        st.session_state['wizard_df'] = df_wiz
+        st.session_state['last_wiz_target'] = target_sel
+        st.rerun()
+
+    edited_df = st.data_editor(st.session_state['wizard_df'], use_container_width=True, hide_index=True)
+    
+    if st.button("Start Dashboard"):
+        prof = save_profile(target_sel, edited_df)
+        st.session_state['user_profile'] = prof
+        st.rerun()
+
+# --- 6. MAIN APPLICATION ---
+else:
+    profile = st.session_state['user_profile']
+    target = profile['target']
+    df = pd.DataFrame(profile['syllabus_data'])
+    resources = profile.get('resources', [])
+    test_scores = profile.get('test_scores', [])
+    schedule_text = profile.get('schedule_text', "No schedule uploaded.")
+    
+    readiness, est_score, target_marks, est_perc = calculate_metrics(df, target)
+    sub_breakdown = get_subject_breakdown(df)
+
+    # SIDEBAR
+    with st.sidebar:
+        st.image("logo.jpg", use_container_width=True)
+        st.caption(f"GOAL: {target}")
+        if st.button("Change Goal"):
+            os.remove(PROFILE_FILE)
+            st.session_state['user_profile'] = None
+            st.rerun()
+        st.divider()
+        uploaded_file = st.file_uploader("Upload Schedule (PDF)", type="pdf")
+        if uploaded_file and api_status:
+            if st.button("Process PDF"):
+                with st.spinner("Analyzing..."):
+                    schedule_text = parse_schedule_pdf(uploaded_file)
+                    save_profile(target, df, resources, schedule_text, test_scores)
+                    st.rerun()
+        
+        st.caption(f"AI: {status_msg}")
+
+    # --- MAIN TABS ---
+    tab_dash, tab_pred, tab_analy, tab_test, tab_syll, tab_lib, tab_ai = st.tabs(
+        ["DASHBOARD", "PREDICTIONS", "ANALYTICS", "TEST CENTER", "SYLLABUS", "LIBRARY", "ZERO TWO"]
+    )
+
+    # TAB 1: DASHBOARD
+    with tab_dash:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Readiness", f"{readiness}%", "Weighted")
+        c2.metric("Est. Score", f"{est_score}", f"Target: {target_marks}")
+        c3.metric("Percentile", est_perc, "Predicted")
+        c4.metric("Status", "Online", status_msg)
+        
+        st.divider()
+        col_sch, col_cmd = st.columns([1,1])
+        with col_sch:
+            st.subheader("📅 Active Schedule")
+            if schedule_text: st.info(schedule_text)
+        with col_cmd:
+            st.subheader("⌨️ Command Log")
+            log_in = st.text_area("Log Input", placeholder="I finished Kinematics...")
+            if st.button("Update"):
+                if api_status:
+                    ups = ai_process_log(log_in, profile['syllabus_data'])
+                    if ups:
+                        for u in ups:
+                            df.loc[df['Chapter'].str.contains(u['Chapter'], case=False), 'Status'] = u['Status']
+                        save_profile(target, df, resources, schedule_text, test_scores)
+                        st.success("Updated!")
+                        st.rerun()
+
+    # TAB 2: PREDICTIONS
+    with tab_pred:
+        st.subheader("🚀 Goal Gap Analysis")
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            gap_fig = go.Figure()
+            gap_fig.add_trace(go.Bar(
+                y=['Score'], x=[est_score], name='You', orientation='h', marker_color='#007CF0'
+            ))
+            gap_fig.add_trace(go.Bar(
+                y=['Score'], x=[target_marks], name='IIT Hyderabad', orientation='h', marker_color='#00DFD8', opacity=0.5
+            ))
+            gap_fig.update_layout(title="You vs IIT Hyderabad Cutoff", barmode='overlay', height=250)
+            st.plotly_chart(gap_fig, use_container_width=True)
+        with c2:
+            st.warning(f"GAP: {target_marks - est_score} Marks")
+
+    # TAB 3: ANALYTICS (FIXED DEEP SCAN)
+    with tab_analy:
+        st.subheader("🧠 Deep Analysis")
+        # Donut Charts
+        c_p1, c_p2, c_p3 = st.columns(3)
+        def make_donut(val, color):
+            fig = go.Figure(data=[go.Pie(labels=['Done', 'Left'], values=[val, 100-val], hole=.7, marker_colors=[color, '#eee'])])
+            fig.update_layout(showlegend=False, margin=dict(t=0,b=0,l=0,r=0), height=140)
+            return fig
+        with c_p1:
+            st.write("Physics")
+            st.plotly_chart(make_donut(sub_breakdown.get("Physics",0), "#007CF0"), use_container_width=True)
+        with c_p2:
+            st.write("Chemistry")
+            st.plotly_chart(make_donut(sub_breakdown.get("Chemistry",0), "#00DFD8"), use_container_width=True)
+        with c_p3:
+            st.write("Maths")
+            st.plotly_chart(make_donut(sub_breakdown.get("Maths",0), "#7928CA"), use_container_width=True)
+
+        if st.button("INITIALIZE DEEP SCAN"):
+            if api_status and model:
+                with st.spinner("Scanning Syllabus Matrix..."):
+                    # CRASH FIX: Send Summary JSON
+                    summary_json = df.groupby('Subject')['Status'].value_counts().to_json()
+                    prompt = f"Analyze progress: {summary_json}. Goal: {target}. Give 3 strategic actions."
+                    try:
+                        report = model.generate_content(prompt).text
+                        st.success("Report Generated")
+                        st.markdown(f"<div class='report-box'>{report}</div>", unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"Scan failed: {e}")
+            else:
+                st.error(f"AI Offline: {status_msg}")
+
+    # TAB 4: TEST CENTER
+    with tab_test:
+        st.subheader("📝 Mock Test Logs")
+        with st.expander("Log New Score"):
+            t_date = st.date_input("Date")
+            t_score = st.number_input("Score", 0, 360)
+            t_type = st.selectbox("Type", ["Part Test", "Full Mock"])
+            if st.button("Save Score"):
+                test_scores.append({"date": str(t_date), "score": t_score, "type": t_type})
+                save_profile(target, df, resources, schedule_text, test_scores)
+                st.rerun()
+        if test_scores:
+            ts_df = pd.DataFrame(test_scores)
+            st.line_chart(ts_df.set_index('date')['score'])
+
+    # TAB 5: SYLLABUS
+    with tab_syll:
+        st.subheader("🗂️ Codex")
+        sub = st.selectbox("Filter", ["Physics", "Chemistry", "Maths"])
+        ed_df = st.data_editor(
+            df[df['Subject'] == sub], 
+            use_container_width=True,
+            column_config={"Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Revision 1", "Revision 2", "Mastered"])}
+        )
+        if st.button("Save Codex Changes"):
+            # Find and update
+            for i, r in ed_df.iterrows():
+                mask = (df['Subject'] == r['Subject']) & (df['Chapter'] == r['Chapter'])
+                df.loc[mask, 'Status'] = r['Status']
+                df.loc[mask, 'Confidence'] = r['Confidence']
+            save_profile(target, df, resources, schedule_text, test_scores)
+            st.success("Saved!")
+            st.rerun()
+
+    # TAB 6: LIBRARY
+    with tab_lib:
+        st.subheader("📚 Resources")
+        with st.expander("Add"):
+            r_n = st.text_input("Name")
+            r_l = st.text_input("Link")
+            if st.button("Add Resource"):
+                resources.append({"name":r_n, "link":r_l})
+                save_profile(target, df, resources, schedule_text, test_scores)
+                st.rerun()
+        for r in resources: st.markdown(f"- [{r['name']}]({r['link']})")
+
+    # TAB 7: ZERO TWO
+    with tab_ai:
+        st.subheader("💬 Zero Two")
+        q = st.chat_input("Ask strategy...")
+        if q and api_status and model:
+            with st.chat_message("user"): st.write(q)
+            with st.chat_message("assistant"):
+                try:
+                    res = model.generate_content(f"Act as academic advisor Zero Two. Goal: {target}. User: {q}")
+                    st.write(res.text)
+                except Exception as e:
+                    st.error(f"Error: {e}")
