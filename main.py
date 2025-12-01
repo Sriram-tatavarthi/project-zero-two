@@ -41,8 +41,10 @@ st.markdown(f"""
     .stButton>button {{ color: {theme['accent']}; border: 1px solid {theme['accent']}; background: transparent; }}
     div[data-testid="stContainer"] {{ border: 1px solid #333; background-color: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; }}
     .stCheckbox label {{ color: {theme['text']}; font-weight: bold; }}
-    /* Hide the sidebar decoration */
+    /* Hide default sidebar padding */
     section[data-testid="stSidebar"] > div {{ padding-top: 2rem; }}
+    /* Motivational Text Style */
+    .reminder-text {{ font-size: 12px; color: #888; font-style: italic; text-align: center; margin-top: 20px; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -242,7 +244,7 @@ else:
             st.rerun()
             
         st.divider()
-        uploaded_file = st.file_uploader("Schedule PDF", type="pdf")
+        st.markdown(f"<div class='reminder-text'>You poured days of effort into building this system. Don't let it sit idle. Make it worth the time.</div>", unsafe_allow_html=True)
         
         st.divider()
         # HIDDEN RESET
@@ -300,7 +302,7 @@ else:
 
         st.divider()
 
-        # --- 2. AI COMMAND LOG (Restored) ---
+        # --- 2. AI COMMAND LOG ---
         st.subheader("🤖 AI Command Log")
         st.caption("Tell the system what you finished. It will auto-update the Syllabus.")
         log_in = st.text_area("Mission Report", placeholder="I finished Electrostatics revision...")
@@ -358,7 +360,7 @@ else:
             column_config={
                 "Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Revision 1", "Revision 2", "Mastered"]),
                 "Weightage": st.column_config.TextColumn("Impact", disabled=True),
-                "Confidence": st.column_config.NumberColumn("Conf %", min_value=0, max_value=100)
+                "Confidence": st.column_config.NumberColumn("Confidence (%)", min_value=0, max_value=100)
             }
         )
         if st.button("Save Changes"):
@@ -411,7 +413,6 @@ else:
         if q and api_status:
             with st.chat_message("user"): st.write(q)
             with st.chat_message("assistant"):
-                # Enhanced Context for AI
                 context = f"""
                 User Status:
                 - Exam Goal: {target}
@@ -423,4 +424,3 @@ else:
                     res = model.generate_content(f"Act as academic strategist Zero Two. {context}. User: {q}")
                     st.write(res.text)
                 except: st.error("AI Error")
-
