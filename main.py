@@ -11,7 +11,7 @@ import os
 # --- 1. SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="FRANXX", page_icon="logo.jpg", layout="wide")
 
-# --- 2. GLOBAL THEME ENGINE (FIXED VISIBILITY) ---
+# --- 2. GLOBAL THEME ENGINE ---
 if 'theme_choice' not in st.session_state:
     st.session_state['theme_choice'] = "Zero Two (Dark)"
 
@@ -19,65 +19,31 @@ def get_theme_vars(theme_name):
     if theme_name == "Zero Two (Dark)":
         return {
             "bg": "#050505", "text": "#e0e0e0", "accent": "#ff003c",
-            "graph_temp": "plotly_dark", "graph_text": "white", "graph_line": "#ff003c",
-            "tab_text": "#e0e0e0"
+            "graph_temp": "plotly_dark", "graph_text": "white", "graph_line": "#ff003c"
         }
     else:
-        # EDTECH LIGHT: Forced Dark Text for Visibility
         return {
-            "bg": "#ffffff", "text": "#000000", "accent": "#0984e3",
-            "graph_temp": "plotly_white", "graph_text": "#000000", "graph_line": "#0984e3",
-            "tab_text": "#333333"
+            "bg": "#ffffff", "text": "#111111", "accent": "#0984e3",
+            "graph_temp": "plotly_white", "graph_text": "black", "graph_line": "#0984e3"
         }
 
 theme = get_theme_vars(st.session_state['theme_choice'])
 
 st.markdown(f"""
 <style>
-    /* GLOBAL COLORS */
     .stApp {{ background-color: {theme['bg']}; color: {theme['text']}; }}
-    
-    /* TEXT VISIBILITY FIXES */
-    p, li, span, label, .stMarkdown {{ color: {theme['text']} !important; }}
-    
-    /* HEADERS */
     h1, h2, h3 {{ 
         background: -webkit-linear-gradient(0deg, {theme['accent']}, #888);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         font-family: 'Helvetica Neue', sans-serif; font-weight: 800;
     }}
-    
-    /* METRICS */
-    div[data-testid="stMetricValue"] {{ color: {theme['accent']} !important; }}
-    div[data-testid="stMetricLabel"] {{ color: {theme['text']} !important; opacity: 0.7; }}
-    
-    /* TABS (The main fix) */
-    button[data-baseweb="tab"] {{
-        color: {theme['tab_text']} !important;
-        font-weight: 600;
-    }}
-    button[data-baseweb="tab"][aria-selected="true"] {{
-        color: {theme['accent']} !important;
-        border-bottom: 2px solid {theme['accent']} !important;
-    }}
-    
-    /* BUTTONS */
+    div[data-testid="stMetricValue"] {{ color: {theme['accent']}; }}
     .stButton>button {{ color: {theme['accent']}; border: 1px solid {theme['accent']}; background: transparent; }}
-    
-    /* CONTAINERS */
-    div[data-testid="stContainer"] {{ 
-        border: 1px solid {theme['accent']}40; 
-        background-color: {theme['accent']}05; 
-        border-radius: 10px; padding: 15px; 
-    }}
-    
-    /* SIDEBAR CLEANUP */
+    div[data-testid="stContainer"] {{ border: 1px solid #333; background-color: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; }}
+    .stCheckbox label {{ color: {theme['text']}; font-weight: bold; }}
+    /* Hide sidebar padding */
     section[data-testid="stSidebar"] > div {{ padding-top: 2rem; }}
-    .reminder-text {{ 
-        font-size: 13px; color: {theme['text']}; opacity: 0.6; 
-        font-style: italic; text-align: center; margin-top: 20px; 
-        border-top: 1px solid #333; padding-top: 10px;
-    }}
+    .reminder-text {{ font-size: 12px; color: #888; font-style: italic; text-align: center; margin-top: 20px; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -232,17 +198,27 @@ if 'user_profile' not in st.session_state:
     st.session_state['user_profile'] = load_profile()
 
 if not st.session_state['user_profile']:
-    # SETUP
+    # SETUP WIZARD
     st.title("🚀 SYSTEM INITIALIZATION")
     target_sel = st.selectbox("SELECT GOAL", ["JEE Main 2026", "JEE Advanced 2026", "AP EAPCET 2026"])
-    if 'wizard_df' not in st.session_state:
+    
+    # FIXED: Check if target changed to reload syllabus logic
+    if 'wizard_df' not in st.session_state or st.session_state.get('last_wiz_target') != target_sel:
         st.session_state['wizard_df'] = pd.DataFrame(get_syllabus_data(target_sel))
         st.session_state['wizard_df']['Status'] = 'Pending'
         st.session_state['wizard_df']['Confidence'] = 0
         st.session_state['wizard_df']['Impact_Score'] = 0.0
+        st.session_state['last_wiz_target'] = target_sel
     
     st.info("Mark completed chapters.")
-    edited_df = st.data_editor(st.session_state['wizard_df'], use_container_width=True, hide_index=True)
+    # FIXED: Hide Impact_Score column in wizard to avoid confusion
+    edited_df = st.data_editor(
+        st.session_state['wizard_df'], 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={"Impact_Score": None}
+    )
+    
     if st.button("START DASHBOARD"):
         save_profile(target_sel, edited_df)
         st.session_state['user_profile'] = load_profile()
@@ -270,7 +246,6 @@ else:
     with st.sidebar:
         st.title("FRANXX")
         
-        # THEME TOGGLE
         new_theme = st.radio("Theme", ["Zero Two (Dark)", "EdTech (Light)"], index=0 if st.session_state['theme_choice'] == "Zero Two (Dark)" else 1)
         if new_theme != st.session_state['theme_choice']:
             st.session_state['theme_choice'] = new_theme
@@ -280,8 +255,9 @@ else:
         st.markdown(f"<div class='reminder-text'>This system was built with sweat and hours of code. Use it daily. Do not let the effort go to waste.</div>", unsafe_allow_html=True)
         
         st.divider()
-        with st.expander("⚠️ Advanced System"):
-            if st.button("Factory Reset"):
+        # HIDDEN RESET
+        with st.expander("⚙️ System Settings"):
+            if st.button("Factory Reset (Clear Data)"):
                 os.remove(PROFILE_FILE)
                 st.session_state['user_profile'] = None
                 st.rerun()
