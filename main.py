@@ -80,7 +80,7 @@ with st.sidebar:
     
     active_exam = st.selectbox("CURRENT MISSION", list(st.session_state['exams'].keys()))
     days = get_days_left(active_exam)
-    st.progress(max(0, min(100, (days/365)*100)))
+    st.progress(min(1.0, max(0.0, days / 365)))
     st.caption(f"T-MINUS: {days} DAYS")
     
     st.markdown("---")
@@ -192,4 +192,5 @@ with tab5:
                 response = model.generate_content(prompt)
                 st.markdown(f"**ZERO TWO:**\n\n{response.text}")
         else:
+
             st.error("COMMUNICATION ERROR: API KEY MISSING.")
