@@ -11,7 +11,7 @@ import os
 # --- 1. SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="FRANXX", page_icon="logo.jpg", layout="wide")
 
-# --- 2. GLOBAL THEME ENGINE ---
+# --- 2. GLOBAL THEME ENGINE (FIXED VISIBILITY) ---
 if 'theme_choice' not in st.session_state:
     st.session_state['theme_choice'] = "Zero Two (Dark)"
 
@@ -19,32 +19,65 @@ def get_theme_vars(theme_name):
     if theme_name == "Zero Two (Dark)":
         return {
             "bg": "#050505", "text": "#e0e0e0", "accent": "#ff003c",
-            "graph_temp": "plotly_dark", "graph_text": "white", "graph_line": "#ff003c"
+            "graph_temp": "plotly_dark", "graph_text": "white", "graph_line": "#ff003c",
+            "tab_text": "#e0e0e0"
         }
     else:
+        # EDTECH LIGHT: Forced Dark Text for Visibility
         return {
-            "bg": "#ffffff", "text": "#111111", "accent": "#0984e3",
-            "graph_temp": "plotly_white", "graph_text": "black", "graph_line": "#0984e3"
+            "bg": "#ffffff", "text": "#000000", "accent": "#0984e3",
+            "graph_temp": "plotly_white", "graph_text": "#000000", "graph_line": "#0984e3",
+            "tab_text": "#333333"
         }
 
 theme = get_theme_vars(st.session_state['theme_choice'])
 
 st.markdown(f"""
 <style>
+    /* GLOBAL COLORS */
     .stApp {{ background-color: {theme['bg']}; color: {theme['text']}; }}
+    
+    /* TEXT VISIBILITY FIXES */
+    p, li, span, label, .stMarkdown {{ color: {theme['text']} !important; }}
+    
+    /* HEADERS */
     h1, h2, h3 {{ 
         background: -webkit-linear-gradient(0deg, {theme['accent']}, #888);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         font-family: 'Helvetica Neue', sans-serif; font-weight: 800;
     }}
-    div[data-testid="stMetricValue"] {{ color: {theme['accent']}; }}
+    
+    /* METRICS */
+    div[data-testid="stMetricValue"] {{ color: {theme['accent']} !important; }}
+    div[data-testid="stMetricLabel"] {{ color: {theme['text']} !important; opacity: 0.7; }}
+    
+    /* TABS (The main fix) */
+    button[data-baseweb="tab"] {{
+        color: {theme['tab_text']} !important;
+        font-weight: 600;
+    }}
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        color: {theme['accent']} !important;
+        border-bottom: 2px solid {theme['accent']} !important;
+    }}
+    
+    /* BUTTONS */
     .stButton>button {{ color: {theme['accent']}; border: 1px solid {theme['accent']}; background: transparent; }}
-    div[data-testid="stContainer"] {{ border: 1px solid #333; background-color: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; }}
-    .stCheckbox label {{ color: {theme['text']}; font-weight: bold; }}
-    /* Hide default sidebar padding */
+    
+    /* CONTAINERS */
+    div[data-testid="stContainer"] {{ 
+        border: 1px solid {theme['accent']}40; 
+        background-color: {theme['accent']}05; 
+        border-radius: 10px; padding: 15px; 
+    }}
+    
+    /* SIDEBAR CLEANUP */
     section[data-testid="stSidebar"] > div {{ padding-top: 2rem; }}
-    /* Motivational Text Style */
-    .reminder-text {{ font-size: 12px; color: #888; font-style: italic; text-align: center; margin-top: 20px; }}
+    .reminder-text {{ 
+        font-size: 13px; color: {theme['text']}; opacity: 0.6; 
+        font-style: italic; text-align: center; margin-top: 20px; 
+        border-top: 1px solid #333; padding-top: 10px;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -194,12 +227,12 @@ def ai_process_log(text, current_syllabus):
         return json.loads(clean)
     except: return []
 
-# --- 6. MAIN APPLICATION ---
+# --- 5. APP LOGIC ---
 if 'user_profile' not in st.session_state:
     st.session_state['user_profile'] = load_profile()
 
 if not st.session_state['user_profile']:
-    # SETUP WIZARD
+    # SETUP
     st.title("🚀 SYSTEM INITIALIZATION")
     target_sel = st.selectbox("SELECT GOAL", ["JEE Main 2026", "JEE Advanced 2026", "AP EAPCET 2026"])
     if 'wizard_df' not in st.session_state:
@@ -216,7 +249,7 @@ if not st.session_state['user_profile']:
         st.rerun()
 
 else:
-    # LOAD DATA
+    # DASHBOARD
     profile = st.session_state['user_profile']
     target = profile['target']
     df = pd.DataFrame(profile['syllabus_data'])
@@ -237,19 +270,18 @@ else:
     with st.sidebar:
         st.title("FRANXX")
         
-        # THEME TOGGLE (Updates Session State -> Triggers Rerun)
+        # THEME TOGGLE
         new_theme = st.radio("Theme", ["Zero Two (Dark)", "EdTech (Light)"], index=0 if st.session_state['theme_choice'] == "Zero Two (Dark)" else 1)
         if new_theme != st.session_state['theme_choice']:
             st.session_state['theme_choice'] = new_theme
             st.rerun()
             
         st.divider()
-        st.markdown(f"<div class='reminder-text'>You poured days of effort into building this system. Don't let it sit idle. Make it worth the time.</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='reminder-text'>This system was built with sweat and hours of code. Use it daily. Do not let the effort go to waste.</div>", unsafe_allow_html=True)
         
         st.divider()
-        # HIDDEN RESET
         with st.expander("⚠️ Advanced System"):
-            if st.button("Factory Reset (Clear All Data)"):
+            if st.button("Factory Reset"):
                 os.remove(PROFILE_FILE)
                 st.session_state['user_profile'] = None
                 st.rerun()
@@ -259,7 +291,7 @@ else:
         ["🏠 HOME", "📊 ANALYTICS", "📝 SYLLABUS", "🩸 MISTAKE AUTOPSY", "💬 ZERO TWO"]
     )
 
-    # TAB 1: HOME (Manual Goals + AI Log)
+    # TAB 1: HOME
     with tab_home:
         with st.container():
             c1, c2, c3 = st.columns(3)
@@ -269,9 +301,8 @@ else:
         
         st.divider()
         
-        # --- 1. MANUAL MISSION CONTROL ---
-        st.subheader("📝 Mission Checklist (Manual)")
-        
+        # MANUAL MISSIONS
+        st.subheader("📝 Mission Checklist")
         c_add, c_list = st.columns([1, 2])
         
         with c_add:
@@ -302,7 +333,7 @@ else:
 
         st.divider()
 
-        # --- 2. AI COMMAND LOG ---
+        # AI LOGGER
         st.subheader("🤖 AI Command Log")
         st.caption("Tell the system what you finished. It will auto-update the Syllabus.")
         log_in = st.text_area("Mission Report", placeholder="I finished Electrostatics revision...")
@@ -315,8 +346,7 @@ else:
                     save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
                     st.success(f"Updated {len(ups)} Chapters!")
                     st.rerun()
-            else:
-                st.error("AI Offline")
+            else: st.error("AI Offline")
 
     # TAB 2: ANALYTICS
     with tab_analytics:
