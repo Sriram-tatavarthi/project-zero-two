@@ -120,7 +120,7 @@ try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         # FIXED: Correct placement of try/except block
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         api_status = True
     else:
         api_status = False
@@ -379,3 +379,4 @@ else:
             with st.chat_message("assistant"):
                 res = model.generate_content(f"Act as academic advisor Zero Two. Goal: {target}. User: {q}")
                 st.write(res.text)
+
