@@ -10,7 +10,7 @@ import os
 import pypdf
 
 # --- 1. SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="Project Zero Two: MK X", page_icon="🔴", layout="wide")
+st.set_page_config(page_title="Project Zero Two: MK X", page_icon="logo.png", layout="wide")
 
 # --- 2. THEME & CSS ---
 st.markdown("""
@@ -302,3 +302,4 @@ else:
                 prompt = f"Act as Zero Two (Strategic AI). Exam: {target}. Readiness: {readiness}%. User: {q}"
                 res = model.generate_content(prompt)
                 st.write(res.text)
+
