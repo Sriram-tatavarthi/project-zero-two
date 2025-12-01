@@ -15,14 +15,12 @@ st.set_page_config(page_title="Project Zero Two", page_icon="logo.jpg", layout="
 # --- 2. DYNAMIC THEME ENGINE ---
 def apply_theme(theme_name):
     if theme_name == "Zero Two (Dark)":
-        # VOID BLACK & NEON RED
         st.markdown("""
         <style>
             .stApp { background-color: #050505; color: #e0e0e0; }
             h1, h2, h3 { 
                 background: -webkit-linear-gradient(0deg, #ff003c, #ff80ab);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
+                -webkit-background-clip: text; -webkit-text-fill-color: transparent;
                 font-family: 'Helvetica Neue', sans-serif; font-weight: 800;
             }
             div[data-testid="stMetricValue"] { color: #ff003c; }
@@ -31,16 +29,14 @@ def apply_theme(theme_name):
             .report-box { border-left: 4px solid #ff003c; background: rgba(255, 0, 60, 0.1); padding: 15px; }
         </style>
         """, unsafe_allow_html=True)
-        return "dark"
+        return "plotly_dark", "white", "#ff003c" # Graph Theme, Text Color, Line Color
     else:
-        # EDTECH (Light) - CLEAN & VISIBLE
         st.markdown("""
         <style>
             .stApp { background-color: #ffffff; color: #111; }
             h1, h2, h3 { 
                 background: -webkit-linear-gradient(0deg, #0984e3, #00cec9);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
+                -webkit-background-clip: text; -webkit-text-fill-color: transparent;
                 font-family: 'Verdana', sans-serif; font-weight: 700;
             }
             div[data-testid="stMetricValue"] { color: #0984e3; }
@@ -49,13 +45,14 @@ def apply_theme(theme_name):
             .report-box { border-left: 4px solid #0984e3; background: rgba(9, 132, 227, 0.1); padding: 15px; }
         </style>
         """, unsafe_allow_html=True)
-        return "light"
+        return "plotly_white", "black", "#0984e3"
 
 # --- 3. MASTER DATA ---
 def get_syllabus_data(exam_type):
+    # YOUR PDF-ACCURATE SYLLABUS
     syllabus = [
         {"Subject": "Physics", "Chapter": "Units & Dimensions", "Weightage": "Low"},
-        {"Subject": "Physics", "Chapter": "Experimental Physics", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Experimental Physics (Vernier/Screw)", "Weightage": "High"},
         {"Subject": "Physics", "Chapter": "Kinematics", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Laws of Motion", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Work, Energy & Power", "Weightage": "Avg"},
@@ -121,6 +118,7 @@ api_status = False
 def init_ai():
     if "GEMINI_API_KEY" not in st.secrets: return None, False
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # TRY UNIVERSAL MODELS (Including 2.0 Flash)
     candidates = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"]
     for m in candidates:
         try:
@@ -184,33 +182,33 @@ def ai_process_log(text, current_syllabus):
         return json.loads(clean)
     except: return []
 
-# --- 5. SMART PDF PARSER (FIXED FOR YOUR TABLE) ---
+# --- 5. SMART PDF PARSER (DATE FIXED) ---
 def parse_schedule_pdf(uploaded_file):
     try:
         reader = pypdf.PdfReader(uploaded_file)
         text = ""
         for page in reader.pages: text += page.extract_text()
         
-        today = str(date.today())
+        # FIX: Force DD.MM.YYYY format to match PDF
+        today_date = datetime.datetime.now().strftime("%d.%m.%Y")
         
-        # SPECIFIC PROMPT FOR YOUR TABLE STRUCTURE
         prompt = f"""
-        You are a Schedule Analyzer. 
-        TODAY'S DATE: {today}
+        You are a Schedule Analyzer.
+        TODAY'S DATE to find: {today_date}
         
         DOCUMENT CONTENT: {text[:6000]}
         
         INSTRUCTIONS:
-        1. Look for rows where the DATE column matches Today ({today}).
-        2. Extract the TOPICS listed in Physics, Chemistry, and Maths columns for that date.
-        3. Look for "WTM", "CTM", "PTM", or "Grand Test" in the next 7 days.
+        1. Find the row in the table where the date is {today_date}.
+        2. Extract the specific Topics listed for Physics, Chemistry, and Maths for THAT DATE.
+        3. Also scan for "WTM", "CTM", "Grand Test" in the next 7 days.
         
-        OUTPUT FORMAT (Strictly):
-        **Today's Targets:**
-        * [Subject]: [Topic]
-        * [Subject]: [Topic]
+        OUTPUT FORMAT (Strict):
+        **Today's Missions ({today_date}):**
+        * [Subject]: [Topic Name]
+        * [Subject]: [Topic Name]
         
-        **Battle Radar (Next 7 Days):**
+        **Battle Radar:**
         * [Date] - [Exam Name]
         """
         response = model.generate_content(prompt)
@@ -222,7 +220,6 @@ if 'user_profile' not in st.session_state:
     st.session_state['user_profile'] = load_profile()
 
 if not st.session_state['user_profile']:
-    # SETUP WIZARD
     st.title("🚀 SYSTEM INITIALIZATION")
     target_sel = st.selectbox("SELECT GOAL", ["JEE Main 2026", "JEE Advanced 2026", "AP EAPCET 2026"])
     if 'wizard_df' not in st.session_state:
@@ -239,7 +236,6 @@ if not st.session_state['user_profile']:
         st.rerun()
 
 else:
-    # LOAD DATA
     profile = st.session_state['user_profile']
     target = profile['target']
     df = pd.DataFrame(profile['syllabus_data'])
@@ -249,7 +245,7 @@ else:
     
     readiness, est_score, target_marks = calculate_metrics(df, target)
     
-    # Update History if changed
+    # Update Daily History
     today_str = str(date.today())
     if not history or history[-1]['date'] != today_str:
         history.append({"date": today_str, "score": readiness})
@@ -259,7 +255,8 @@ else:
     with st.sidebar:
         st.title("PROJECT 02")
         theme_choice = st.radio("Theme", ["Zero Two (Dark)", "EdTech (Light)"])
-        active_theme = apply_theme(theme_choice)
+        # Capture theme variables for graphs
+        graph_template, text_color, line_color = apply_theme(theme_choice)
         
         st.divider()
         uploaded_file = st.file_uploader("Schedule PDF", type="pdf")
@@ -277,12 +274,11 @@ else:
 
     # TABS
     tab_home, tab_analytics, tab_syll, tab_mistakes, tab_ai = st.tabs(
-        ["🏠 HOME", "📊 ANALYTICS", "📝 SYLLABUS", "🩸 MISTAKE BOOK", "💬 ZERO TWO"]
+        ["🏠 HOME", "📊 ANALYTICS", "📝 SYLLABUS", "🩸 MISTAKE AUTOPSY", "💬 ZERO TWO"]
     )
 
     # TAB 1: HOME
     with tab_home:
-        # Metrics
         with st.container():
             c1, c2, c3 = st.columns(3)
             c1.metric("Readiness", f"{readiness}%", "Weighted")
@@ -291,17 +287,15 @@ else:
         
         st.divider()
         
-        # Schedule & Log
         c_sch, c_log = st.columns([1, 1])
         with c_sch:
             st.subheader("📅 Briefing")
-            if "Battle" in schedule_text or "Exam" in schedule_text:
-                st.error("⚠️ EXAM DETECTED")
+            if "Radar" in schedule_text: st.warning("⚠️ BATTLE ALERT")
             st.info(schedule_text)
             
         with c_log:
             st.subheader("⌨️ Quick Log")
-            log_in = st.text_area("What did you finish today?", placeholder="I finished Electrostatics...")
+            log_in = st.text_area("Update Progress", placeholder="I finished Electrostatics...")
             if st.button("Update Status"):
                 if api_status:
                     ups = ai_process_log(log_in, profile['syllabus_data'])
@@ -312,18 +306,16 @@ else:
                         st.success("Updated!")
                         st.rerun()
 
-    # TAB 2: ANALYTICS (Graphs)
+    # TAB 2: ANALYTICS (Fixed Text Colors)
     with tab_analytics:
         st.subheader("🚀 Goal Analysis")
         
         c1, c2 = st.columns([2, 1])
         with c1:
-            # Goal Gap (Bar)
             fig_gap = go.Figure()
-            fig_gap.add_trace(go.Bar(y=['Score'], x=[est_score], name='You', orientation='h', marker_color='#007CF0'))
-            fig_gap.add_trace(go.Bar(y=['Score'], x=[target_marks], name='Target', orientation='h', marker_color='#00DFD8', opacity=0.5))
-            text_col = "white" if active_theme == "dark" else "black"
-            fig_gap.update_layout(barmode='overlay', height=200, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=text_col))
+            fig_gap.add_trace(go.Bar(y=['Score'], x=[est_score], name='You', orientation='h', marker_color=line_color))
+            fig_gap.add_trace(go.Bar(y=['Score'], x=[target_marks], name='Target', orientation='h', marker_color='#888', opacity=0.5))
+            fig_gap.update_layout(template=graph_template, barmode='overlay', height=200, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=text_color))
             st.plotly_chart(fig_gap, use_container_width=True)
             
         with c2:
@@ -335,8 +327,8 @@ else:
         st.subheader("📈 Consistency Tracker")
         if history:
             h_df = pd.DataFrame(history)
-            fig_line = go.Figure(go.Scatter(x=h_df['date'], y=h_df['score'], mode='lines+markers', line=dict(color='#ff003c')))
-            fig_line.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=text_col))
+            fig_line = go.Figure(go.Scatter(x=h_df['date'], y=h_df['score'], mode='lines+markers', line=dict(color=line_color)))
+            fig_line.update_layout(template=graph_template, height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=text_color))
             st.plotly_chart(fig_line, use_container_width=True)
 
     # TAB 3: SYLLABUS
@@ -372,7 +364,7 @@ else:
                         st.markdown(f"<div class='report-box'>{report}</div>", unsafe_allow_html=True)
                     except: st.error("AI Error")
 
-    # TAB 4: MISTAKE BOOK (Replaced Library)
+    # TAB 4: MISTAKE AUTOPSY (Replaced Library)
     with tab_mistakes:
         st.subheader("🩸 Error Autopsy")
         with st.expander("Log New Mistake"):
@@ -388,14 +380,13 @@ else:
         if mistakes:
             m_df = pd.DataFrame(mistakes)
             st.dataframe(m_df, use_container_width=True)
-            # Simple Chart
+            # Pie Chart
             err_counts = m_df['type'].value_counts()
             fig_err = go.Figure(data=[go.Pie(labels=err_counts.index, values=err_counts.values, hole=.5)])
-            text_col = "white" if active_theme == "dark" else "black"
-            fig_err.update_layout(height=250, paper_bgcolor='rgba(0,0,0,0)', font=dict(color=text_col))
+            fig_err.update_layout(template=graph_template, height=250, paper_bgcolor='rgba(0,0,0,0)', font=dict(color=text_color))
             st.plotly_chart(fig_err, use_container_width=True)
         else:
-            st.info("No mistakes logged yet. Good job?")
+            st.info("No mistakes logged yet.")
 
     # TAB 5: MENTOR
     with tab_ai:
