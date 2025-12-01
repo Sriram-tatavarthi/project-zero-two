@@ -10,15 +10,12 @@ import os
 import pypdf
 
 # --- 1. SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="Project Zero Two: MK XVIII", page_icon="logo.jpg", layout="wide")
+st.set_page_config(page_title="Project Zero Two", page_icon="logo.jpg", layout="wide")
 
-# --- 2. PROFESSIONAL EDTECH THEME ---
+# --- 2. THEME ---
 st.markdown("""
 <style>
-    /* Global Background */
     .stApp { background-color: #0e1117; }
-    
-    /* Gradient Headers */
     h1, h2, h3 { 
         background: -webkit-linear-gradient(0deg, #007CF0, #00DFD8);
         -webkit-background-clip: text;
@@ -26,36 +23,19 @@ st.markdown("""
         font-family: 'Helvetica Neue', sans-serif;
         font-weight: 800;
     }
-    
-    /* Metrics */
-    div[data-testid="stMetricValue"] {
-        font-size: 26px; color: #007CF0; font-weight: bold;
-    }
-    
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; border-bottom: 1px solid #333; }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px; font-weight: 600; color: #888;
-    }
+    div[data-testid="stMetricValue"] { color: #007CF0; font-weight: bold; }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
         color: #007CF0; border-bottom: 3px solid #007CF0;
-    }
-    
-    /* AI Report Box */
-    .report-box {
-        padding: 20px; border-radius: 10px; background: rgba(0, 124, 240, 0.1);
-        border-left: 5px solid #007CF0; margin-top: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. MASTER DATA (SYNCED WITH PDF) ---
+# --- 3. MASTER DATA ---
 def get_syllabus_data(exam_type):
-    # ACCURATE SYLLABUS LIST FROM YOUR PDF
+    # YOUR PDF SYLLABUS
     syllabus = [
-        # PHYSICS
         {"Subject": "Physics", "Chapter": "Units, Dimensions & Errors", "Weightage": "Low"},
-        {"Subject": "Physics", "Chapter": "Experimental Physics (Vernier/Screw Gauge)", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Experimental Physics", "Weightage": "High"},
         {"Subject": "Physics", "Chapter": "Kinematics", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Laws of Motion", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Work, Energy & Power", "Weightage": "Avg"},
@@ -71,7 +51,6 @@ def get_syllabus_data(exam_type):
         {"Subject": "Physics", "Chapter": "Optics (Ray & Wave)", "Weightage": "High"},
         {"Subject": "Physics", "Chapter": "Modern Physics", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Semiconductors", "Weightage": "High"},
-        # CHEMISTRY
         {"Subject": "Chemistry", "Chapter": "Mole Concept", "Weightage": "Avg"},
         {"Subject": "Chemistry", "Chapter": "Atomic Structure", "Weightage": "Avg"},
         {"Subject": "Chemistry", "Chapter": "Chemical Bonding", "Weightage": "High"},
@@ -88,7 +67,6 @@ def get_syllabus_data(exam_type):
         {"Subject": "Chemistry", "Chapter": "Nitrogen Compounds", "Weightage": "Avg"},
         {"Subject": "Chemistry", "Chapter": "Biomolecules", "Weightage": "Avg"},
         {"Subject": "Chemistry", "Chapter": "POC & Titration", "Weightage": "Avg"},
-        # MATHS
         {"Subject": "Maths", "Chapter": "Sets & Functions", "Weightage": "High"},
         {"Subject": "Maths", "Chapter": "Complex Numbers", "Weightage": "Avg"},
         {"Subject": "Maths", "Chapter": "Quadratic Eq", "Weightage": "Avg"},
@@ -115,31 +93,39 @@ def get_syllabus_data(exam_type):
 
 PROFILE_FILE = "user_profile.json"
 
-# --- 4. API & LOGIC (FAIL-SAFE MODE) ---
-api_status = False
+# --- 4. API & LOGIC (SELF-HEALING ENGINE) ---
 model = None
+api_status = False
+status_msg = "Initializing..."
 
-# Try loading API Key
-if "GEMINI_API_KEY" in st.secrets:
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        
-        # FAIL-SAFE MODEL LOADER
-        # It tries 3 different model names. If one works, it stops.
-        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro']
-        
-        for m in models_to_try:
-            try:
-                model = genai.GenerativeModel(m)
-                # Test connection lightly
-                # model.generate_content("test") 
-                api_status = True
-                break # It worked! Stop trying.
-            except:
-                continue # Try next model
-        
-    except Exception as e:
-        api_status = False
+def init_ai():
+    if "GEMINI_API_KEY" not in st.secrets:
+        return None, False, "API Key Missing"
+    
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    
+    # LIST OF MODELS TO TRY (Fallback Logic)
+    # It tries Flash first, then Pro. It WILL find one.
+    candidates = [
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-pro",
+        "gemini-1.0-pro"
+    ]
+    
+    for m in candidates:
+        try:
+            test_model = genai.GenerativeModel(m)
+            # Lightweight test
+            test_model.generate_content("hi")
+            return test_model, True, f"Connected ({m})"
+        except:
+            continue 
+            
+    return None, False, "Connection Failed"
+
+# Initialize AI on load
+model, api_status, status_msg = init_ai()
 
 def calculate_metrics(df, target_exam):
     w_vals = {"High": 3, "Avg": 2, "Low": 1}
@@ -165,7 +151,7 @@ def calculate_metrics(df, target_exam):
         elif est_score > 150: est_perc = "97.0%ile"
         else: est_perc = "< 90%ile"
     else:
-        est_perc = "N/A (Rank Based)"
+        est_perc = "Rank Based"
         
     return readiness, est_score, target_marks, est_perc
 
@@ -211,12 +197,24 @@ def save_profile(target, df_data, resources=None, schedule_text="", test_scores=
 
 def ai_process_log(text, current_syllabus):
     valid_chaps = [x['Chapter'] for x in current_syllabus]
-    prompt = f"Analyze: '{text}'. Match to: {valid_chaps}. Return JSON: [{{'Chapter': 'Name', 'Status': 'Mastered'}}]"
+    # Use JSON mode for safety
+    prompt = f"Analyze: '{text}'. Match to: {valid_chaps}. Return valid JSON list: [{{'Chapter': 'Name', 'Status': 'Mastered'}}]"
     try:
         response = model.generate_content(prompt)
         clean = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean)
     except: return []
+
+def parse_schedule_pdf(uploaded_file):
+    reader = pypdf.PdfReader(uploaded_file)
+    text = ""
+    for page in reader.pages: text += page.extract_text()
+    
+    prompt = f"Find exams and key topics in this text for the next 7 days. Summarize briefly. Text: {text[:3000]}"
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except: return "Could not parse schedule."
 
 # --- 5. SETUP WIZARD ---
 if 'user_profile' not in st.session_state:
@@ -257,7 +255,8 @@ else:
 
     # SIDEBAR
     with st.sidebar:
-        st.title("PROJECT 02")
+        # LOGO (Fixed)
+        st.image("logo.jpg", use_container_width=True)
         st.caption(f"GOAL: {target}")
         if st.button("Change Goal"):
             os.remove(PROFILE_FILE)
@@ -265,6 +264,14 @@ else:
             st.rerun()
         st.divider()
         uploaded_file = st.file_uploader("Upload Schedule (PDF)", type="pdf")
+        if uploaded_file and api_status:
+            if st.button("Process PDF"):
+                with st.spinner("Analyzing..."):
+                    schedule_text = parse_schedule_pdf(uploaded_file)
+                    save_profile(target, df, resources, schedule_text, test_scores)
+                    st.rerun()
+        
+        st.caption(f"AI: {status_msg}")
 
     # --- MAIN TABS ---
     tab_dash, tab_pred, tab_analy, tab_test, tab_syll, tab_lib, tab_ai = st.tabs(
@@ -277,7 +284,7 @@ else:
         c1.metric("Readiness", f"{readiness}%", "Weighted")
         c2.metric("Est. Score", f"{est_score}", f"Target: {target_marks}")
         c3.metric("Percentile", est_perc, "Predicted")
-        c4.metric("Status", "Online", "AI Active" if api_status else "Offline")
+        c4.metric("Status", "Online", status_msg)
         
         st.divider()
         col_sch, col_cmd = st.columns([1,1])
@@ -334,11 +341,11 @@ else:
             st.plotly_chart(make_donut(sub_breakdown.get("Maths",0), "#7928CA"), use_container_width=True)
 
         if st.button("INITIALIZE DEEP SCAN"):
-            if api_status and model:
+            if api_status:
                 with st.spinner("Scanning Syllabus Matrix..."):
-                    # CRASH FIX: Send Summary JSON, NOT raw text
+                    # CRASH FIX: Send Summary JSON
                     summary_json = df.groupby('Subject')['Status'].value_counts().to_json()
-                    prompt = f"Analyze progress: {summary_json}. Goal: {target}. Identify weak subjects and give 3 strategic actions."
+                    prompt = f"Analyze progress: {summary_json}. Goal: {target}. Give 3 strategic actions."
                     try:
                         report = model.generate_content(prompt).text
                         st.success("Report Generated")
@@ -346,7 +353,7 @@ else:
                     except Exception as e:
                         st.error(f"Scan failed: {e}")
             else:
-                st.error("AI is Offline or Model Failed to Load. Check API Key.")
+                st.error(f"AI Offline: {status_msg}")
 
     # TAB 4: TEST CENTER
     with tab_test:
@@ -372,8 +379,7 @@ else:
             use_container_width=True,
             column_config={"Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Revision 1", "Revision 2", "Mastered"])}
         )
-        if st.button("Save Changes"):
-            # Update main dataframe logic
+        if st.button("Save Codex Changes"):
             for i, r in ed_df.iterrows():
                 mask = (df['Subject'] == r['Subject']) & (df['Chapter'] == r['Chapter'])
                 df.loc[mask, 'Status'] = r['Status']
@@ -398,7 +404,7 @@ else:
     with tab_ai:
         st.subheader("💬 Zero Two")
         q = st.chat_input("Ask strategy...")
-        if q and api_status and model:
+        if q and api_status:
             with st.chat_message("user"): st.write(q)
             with st.chat_message("assistant"):
                 try:
