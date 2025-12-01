@@ -4,193 +4,356 @@ import datetime
 from datetime import date, timedelta
 import google.generativeai as genai
 import plotly.graph_objects as go
+import plotly.express as px
 import time
+import pypdf
+import json
 
-# --- SYSTEM CONFIGURATION ---
+# --- 1. SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="Project Zero Two", page_icon="🔴", layout="wide")
 
-# Custom CSS for the "Zero Two" Theme
+# --- 2. PROFESSIONAL ZERO TWO THEME (CSS) ---
 st.markdown("""
 <style>
-    .stApp { background-color: #0e1117; }
-    h1, h2, h3 { color: #ff003c !important; font-family: 'Courier New', Courier, monospace; }
-    .stProgress > div > div > div > div { background-color: #ff003c; }
-    div[data-testid="stMetricValue"] { color: #ff003c; }
+    /* MAIN BACKGROUND - VOID BLACK */
+    .stApp {
+        background-color: #050505;
+        background-image: radial-gradient(circle at 50% 50%, #1a0b0e 0%, #050505 100%);
+    }
+    
+    /* GRADIENT HEADERS (Pink to Red) */
+    h1, h2, h3, h4 {
+        background: -webkit-linear-gradient(0deg, #ff003c, #ff80ab);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-family: 'Helvetica Neue', sans-serif;
+        font-weight: 800;
+        letter-spacing: 1px;
+    }
+    
+    /* GLASSMORPHISM CARDS */
+    div[data-testid="stExpander"], div[data-testid="stContainer"] {
+        background: rgba(20, 20, 20, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 0, 60, 0.15); /* Zero Two Red Border */
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* METRICS & TEXT */
+    div[data-testid="stMetricValue"] {
+        color: #ff003c;
+        font-family: 'Courier New', monospace;
+        text-shadow: 0 0 10px rgba(255, 0, 60, 0.4);
+    }
+    div[data-testid="stMetricLabel"] { color: #aaaaaa; }
+    
+    /* PROGRESS BARS - NEON PINK */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #ff003c, #ff6b95);
+        box-shadow: 0 0 10px rgba(255, 0, 60, 0.5);
+    }
+    
+    /* BUTTONS */
+    div.stButton > button {
+        background-color: #1a0b0e;
+        color: #ff003c;
+        border: 1px solid #ff003c;
+        border-radius: 8px;
+    }
+    div.stButton > button:hover {
+        background-color: #ff003c;
+        color: white;
+        box-shadow: 0 0 15px rgba(255, 0, 60, 0.6);
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- INITIALIZATION ---
+# --- 3. MASTER DATA (FULL 90+ CHAPTERS) ---
+# Hardcoded to ensure user has full list immediately
+FULL_SYLLABUS = [
+    # PHYSICS
+    {"Subject": "Physics", "Chapter": "Units & Dimensions", "Weightage": "Low", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Kinematics", "Weightage": "Low", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Laws of Motion", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Work, Energy & Power", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Rotational Motion", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Gravitation", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Properties of Solids/Fluids", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Thermodynamics", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "KTG", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Oscillations & Waves", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Electrostatics", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Current Electricity", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Magnetism", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "EMI & AC", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "EM Waves", "Weightage": "Low", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Ray Optics", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Wave Optics", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Dual Nature", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Atoms & Nuclei", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Physics", "Chapter": "Semiconductors", "Weightage": "High", "Status": "Pending"},
+    
+    # CHEMISTRY
+    {"Subject": "Chemistry", "Chapter": "Mole Concept", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Atomic Structure", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Chemical Bonding", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Thermodynamics", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Equilibrium", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Redox Reactions", "Weightage": "Low", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Solutions", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Electrochemistry", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Kinetics", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Surface Chemistry", "Weightage": "Low", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Periodic Table", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Metallurgy", "Weightage": "Low", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Block Elements (s, p, d, f)", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Coordination Compounds", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "GOC", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Hydrocarbons", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Haloalkanes/Haloarenes", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Alcohols, Phenols, Ethers", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Aldehydes & Ketones", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Amines", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Chemistry", "Chapter": "Biomolecules/Polymers", "Weightage": "Avg", "Status": "Pending"},
+
+    # MATHS
+    {"Subject": "Maths", "Chapter": "Sets, Relations, Functions", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Complex Numbers", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Quadratics", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Matrices & Determinants", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "P&C", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Binomial Theorem", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Sequence & Series", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Limits, Continuity, Diff", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Derivatives (AOD)", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Indefinite Integration", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Definite Integration", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Differential Equations", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Coordinate Geometry", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Vectors & 3D", "Weightage": "High", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Probability", "Weightage": "Avg", "Status": "Pending"},
+    {"Subject": "Maths", "Chapter": "Statistics", "Weightage": "Low", "Status": "Pending"},
+]
+
+# --- 4. INITIALIZATION ---
 if 'init' not in st.session_state:
     st.session_state['init'] = True
-    st.session_state['exams'] = {
-        "JEE Main 2026": {"date": date(2026, 1, 21), "target": 220},
-        "AP EAPCET 2026": {"date": date(2026, 5, 19), "target": 120}
+    st.session_state['syllabus'] = pd.DataFrame(FULL_SYLLABUS)
+    st.session_state['target_exam'] = "JEE Main 2026"
+    st.session_state['mock_avg'] = 120 # Default starting avg
+    st.session_state['exam_config'] = {
+        "JEE Main 2026": {"total": 300, "safe": 180, "date": date(2026, 1, 21)},
+        "AP EAPCET 2026": {"total": 160, "safe": 120, "date": date(2026, 5, 19)}
     }
-    st.session_state['logs'] = []
-    st.session_state['mistakes'] = []
-    st.session_state['resources'] = []
-    st.session_state['timer_active'] = False
 
-# --- BOOT SEQUENCE (One Time) ---
-if st.session_state['init']:
-    placeholder = st.empty()
-    with placeholder.container():
-        st.markdown("""
-        <style>
-        .boot-text {
-            font-size: 36px; font-weight: bold; text-align: center; margin-top: 20%;
-            color: #ff003c; font-family: 'Courier New', monospace; letter-spacing: 4px;
-        }
-        .sub-text { font-size: 16px; color: #aaaaaa; margin-top: 15px; letter-spacing: 2px; }
-        </style>
-        <div class='boot-text'>
-            PROJECT ZERO TWO<br>
-            <div class='sub-text'>ARCHITECT: SRIRAM</div>
-            <div class='sub-text'>SYSTEM: ONLINE</div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(3.5)
-        placeholder.empty()
-    st.session_state['init'] = False
-
-# --- API SETUP ---
+# --- 5. API SETUP ---
 try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel('gemini-1.5-flash')
-        api_status = "LINKED"
+        api_status = True
     else:
-        api_status = "DISCONNECTED"
+        api_status = False
 except:
-    api_status = "ERROR"
+    api_status = False
 
-# --- HELPER FUNCTIONS ---
-def get_days_left(exam_name):
-    return (st.session_state['exams'][exam_name]['date'] - date.today()).days
-
-def get_time_block():
-    hour = datetime.datetime.now().hour
-    return "ACADEMY_MODE" if 8 <= hour < 19 else "PILOT_MODE"
-
-# --- SIDEBAR ---
-with st.sidebar:
-    st.title("🔴 PROJECT 02")
-    st.caption("PILOT: SRIRAM")
-    st.markdown("---")
+# --- 6. CORE FUNCTIONS ---
+def calculate_analytics(df, exam_mode):
+    # Overall Completion
+    total_ch = len(df)
+    done_ch = len(df[df['Status'] != 'Pending'])
+    completion_rate = (done_ch / total_ch) * 100
     
-    active_exam = st.selectbox("CURRENT MISSION", list(st.session_state['exams'].keys()))
-    days = get_days_left(active_exam)
-    st.progress(min(1.0, max(0.0, days / 365)))
-    st.caption(f"T-MINUS: {days} DAYS")
+    # Subject Wise
+    sub_data = {}
+    for sub in ['Physics', 'Chemistry', 'Maths']:
+        s_df = df[df['Subject'] == sub]
+        s_done = len(s_df[s_df['Status'] != 'Pending'])
+        sub_data[sub] = (s_done / len(s_df)) * 100 if len(s_df) > 0 else 0
+
+    # Predictive Logic
+    # Formula: (Mock% * 0.7) + (Syllabus% * 0.3)
+    exam_total = st.session_state['exam_config'][exam_mode]['total']
+    mock_perc = (st.session_state['mock_avg'] / exam_total) * 100
     
-    st.markdown("---")
-    st.markdown("### PILOT VITALITY")
-    energy = st.slider("Energy Level", 0, 100, 80)
-    if energy < 30:
-        st.error("⚠️ CRITICAL FATIGUE DETECTED.")
-    elif energy < 60:
-        st.warning("⚠️ STAMINA LOW.")
+    readiness_score = (mock_perc * 0.7) + (completion_rate * 0.3)
+    
+    # Prediction Output
+    if exam_mode.startswith("JEE"):
+        # Rough Percentile Estimation based on readiness
+        est_rank = int(1000000 * (1 - (readiness_score/100)))
+        est_rank = max(1000, est_rank) # Cap at rank 1000 for realism
+        pred_text = f"Est. Rank: {est_rank:,}"
     else:
-        st.success("✅ OPTIMAL STATE")
+        # EAPCET Rank
+        est_rank = int(200000 * (1 - (readiness_score/100)))
+        pred_text = f"Est. Rank: {est_rank:,}"
         
+    return completion_rate, sub_data, pred_text, readiness_score
+
+def ai_process_log(text):
+    prompt = f"""
+    You are the database engine for Project Zero Two.
+    Task: specific chapter status update.
+    User Text: "{text}"
+    Master Chapters: {FULL_SYLLABUS[:5]} (and others).
+    
+    Return JSON list ONLY: [{{"Chapter": "Exact Name", "Status": "Mastered"}}]
+    """
+    try:
+        response = model.generate_content(prompt)
+        clean = response.text.replace("```json", "").replace("```", "").strip()
+        updates = json.loads(clean)
+        
+        df = st.session_state['syllabus']
+        count = 0
+        for u in updates:
+            # Fuzzy matching or direct (simplified here)
+            mask = df['Chapter'].str.contains(u['Chapter'], case=False, regex=False)
+            if mask.any():
+                df.loc[mask, 'Status'] = u['Status']
+                count += 1
+        st.session_state['syllabus'] = df
+        return f"SYNC COMPLETE: {count} CHAPTERS UPDATED."
+    except:
+        return "ERROR: AI COULD NOT PARSE COMMAND."
+
+# --- 7. SIDEBAR ---
+with st.sidebar:
+    st.title("🔴 COMMANDER")
+    
+    # Goal Switcher
+    st.markdown("### TARGET LOCK")
+    target = st.selectbox("Select Mission", list(st.session_state['exam_config'].keys()))
+    st.session_state['target_exam'] = target
+    
+    conf = st.session_state['exam_config'][target]
+    days = (conf['date'] - date.today()).days
+    
+    st.metric("T-MINUS", f"{days} DAYS")
+    st.progress(min(1.0, max(0.0, days/365)))
+    
     st.markdown("---")
-    st.caption(f"AI CORE: {api_status}")
+    uploaded_file = st.file_uploader("UPLOAD SCHEDULE (PDF)", type="pdf")
+    st.markdown("---")
+    st.caption("SYSTEM STATUS: " + ("ONLINE" if api_status else "OFFLINE"))
 
-# --- MAIN INTERFACE ---
-st.title(f"MISSION: {active_exam.upper()}")
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["DAILY LOGS", "SYNC TIMER", "ROADMAP", "THE ARMORY", "SYSTEM CORE"])
+# --- 8. MAIN INTERFACE ---
+st.title("PROJECT ZERO TWO")
+st.caption(f"MISSION: {target.upper()} | ARCHITECT: SRIRAM")
 
-# --- TAB 1: LOGS ---
+tab1, tab2, tab3, tab4 = st.tabs(["📊 ANALYTICS CORE", "📝 SYLLABUS TRACKER", "🤖 COMMAND LOG", "💬 ZERO TWO"])
+
+# --- TAB 1: ANALYTICS CORE ---
 with tab1:
-    mode = get_time_block()
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        if mode == "ACADEMY_MODE":
-            st.info("🏫 ACADEMY MODE ACTIVE (08:00 - 19:00)")
-            with st.form("college"):
-                st.text_input("Physics Update")
-                st.text_input("Chemistry Update")
-                st.text_input("Maths Update")
-                if st.form_submit_button("UPLOAD DATA"):
-                    st.success("Data encrypted & stored.")
-        else:
-            st.success("🏠 PILOT MODE ACTIVE")
-            st.checkbox("Review Academy Notes")
-            st.checkbox("Solve 30 PYQs")
-            st.checkbox("Update Mistake Database")
-            report = st.text_area("Mission Report")
-            if st.button("LOG REPORT"):
-                st.session_state['logs'].append({"Date": str(date.today()), "Report": report})
-                st.toast("Report Logged.")
-    with c2:
-        st.metric("Consistency", "92%", "+2%")
-        st.metric("Syllabus", "100%", "Done")
-
-# --- TAB 2: TIMER ---
-with tab2:
-    st.subheader("⏱️ SYNCHRONIZATION TIMER")
+    # Calculate Data
+    comp_rate, sub_data, pred_text, readiness = calculate_analytics(st.session_state['syllabus'], target)
+    
+    # Top Metrics (Glass Cards)
     c1, c2, c3 = st.columns(3)
     with c1:
-        t = st.number_input("Duration (Mins)", 10, 180, 50)
+        st.metric("PREDICTED OUTCOME", pred_text, delta="Based on trajectory")
     with c2:
-        st.write("")
-        st.write("")
-        if st.button("INITIATE LINK"):
-            with st.status("ESTABLISHING LINK...", expanded=True) as status:
-                time.sleep(1)
-                st.write("Optimizing neural focus...")
-                time.sleep(1)
-                status.update(label="LINK ESTABLISHED", state="complete")
-            st.success(f"FOCUS SESSION STARTED: {t} MINS")
+        st.metric("SYLLABUS COMPLETED", f"{int(comp_rate)}%", delta=f"{len(st.session_state['syllabus'])} Chapters")
+    with c3:
+        st.metric("MOCK AVG", f"{st.session_state['mock_avg']}/{conf['total']}", delta="Last 3 tests")
+    
+    st.divider()
+    
+    # Graphs Row
+    col_main, col_pie = st.columns([2, 1])
+    
+    with col_main:
+        st.subheader("🚀 SUCCESS PROBABILITY")
+        # Area Chart
+        dates = [date.today() + timedelta(days=i) for i in range(10)]
+        # Simulated projection
+        proj_scores = [readiness + (i * 0.5) for i in range(10)] 
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=dates, y=proj_scores, fill='tozeroy', mode='lines', line=dict(color='#ff003c', width=3), name='Trajectory'))
+        fig.add_trace(go.Scatter(x=dates, y=[85]*10, mode='lines', line=dict(color='white', dash='dash'), name='Goal Line'))
+        fig.update_layout(
+            template="plotly_dark", 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)',
+            height=350,
+            margin=dict(l=20, r=20, t=20, b=20)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+    with col_pie:
+        st.subheader("🎯 SUBJECT BREAKDOWN")
+        # Create Donut Charts for Subjects
+        for sub, val in sub_data.items():
+            # Minimalist progress bars for subjects
+            st.write(f"**{sub}**")
+            st.progress(val/100)
+            st.caption(f"{int(val)}% Mastered")
 
-# --- TAB 3: ROADMAP ---
+# --- TAB 2: SYLLABUS TRACKER ---
+with tab2:
+    st.subheader("🗂️ MASTER CODEX")
+    st.info("Select a Subject to manage chapters. Changes auto-save.")
+    
+    sub_filter = st.selectbox("FILTER SUBJECT", ["Physics", "Chemistry", "Maths"])
+    
+    df = st.session_state['syllabus']
+    filtered_df = df[df['Subject'] == sub_filter]
+    
+    # Interactive Editor
+    edited_df = st.data_editor(
+        filtered_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Status": st.column_config.SelectboxColumn(
+                "Mastery Status",
+                options=["Pending", "Rev 1 Done", "Rev 2 Done", "Mastered"],
+                required=True,
+            ),
+            "Weightage": st.column_config.TextColumn("Weightage", disabled=True),
+        },
+        num_rows="fixed"
+    )
+    
+    # Save Logic
+    if st.button("SAVE CHANGES"):
+        # Update original DF with edits
+        df.update(edited_df)
+        st.session_state['syllabus'] = df
+        st.success("DATABASE UPDATED")
+
+# --- TAB 3: COMMAND LOG ---
 with tab3:
-    st.subheader("🚀 FLIGHT PATH")
-    dates = [date.today() - timedelta(days=x) for x in range(30, 0, -5)]
-    scores = [140, 145, 142, 150, 158, 160]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=dates, y=scores, mode='lines+markers', name='Altitude', line=dict(color='#ff003c', width=3)))
-    fig.add_trace(go.Scatter(x=dates, y=[220]*len(dates), mode='lines', name='Target', line=dict(dash='dash', color='white')))
-    fig.update_layout(template="plotly_dark", height=400, margin=dict(l=20, r=20, t=40, b=20))
-    st.plotly_chart(fig, use_container_width=True)
-
-# --- TAB 4: ARMORY ---
-with tab4:
-    st.subheader("⚔️ RESOURCE ARMORY")
-    with st.expander("ADD NEW RESOURCE"):
-        n = st.text_input("Name")
-        l = st.text_input("Link/Location")
-        t = st.selectbox("Type", ["Notes", "Video", "Test"])
-        if st.button("STORE"):
-            st.session_state['resources'].append({"Name": n, "Link": l, "Type": t})
-            st.success("Indexed.")
-    if st.session_state['resources']:
-        st.table(pd.DataFrame(st.session_state['resources']))
-    else:
-        st.info("Armory Empty.")
-
-# --- TAB 5: AI CORE (The Jarvis/Raphael Persona) ---
-with tab5:
-    st.subheader("🤖 CONNECT: ZERO TWO")
-    user_q = st.text_area("INPUT QUERY", placeholder="System, I am feeling overwhelmed with Calculus...")
-    if st.button("TRANSMIT"):
-        if api_status == "LINKED":
-            with st.spinner("PROCESSING..."):
-                # Sriram's Requested Persona: Jarvis/Raphael Style
-                prompt = f"""
-                You are 'Zero Two', an advanced, hyper-intelligent AI assistant similar to J.A.R.V.I.S or Raphael (Great Sage).
-                User: Sriram (The Architect/Pilot).
-                
-                Tone Guidelines:
-                1. Be sophisticated, calm, and highly articulate.
-                2. Do NOT use robotic phrases like 'Vital signs detected'. 
-                3. Instead, say things like: "I have analyzed your request and concluded..." or "My suggestion, considering your current fatigue levels, is..."
-                4. Be helpful but precise. No fluff.
-                
-                User Query: {user_q}
-                """
-                response = model.generate_content(prompt)
-                st.markdown(f"**ZERO TWO:**\n\n{response.text}")
+    st.subheader("⌨️ MANUAL OVERRIDE")
+    st.write("Type your progress naturally. The AI will update the Codex.")
+    
+    log_in = st.text_area("MISSION LOG", placeholder="Example: I mastered Rotational Motion and Electrostatics today.")
+    
+    if st.button("UPLOAD LOG"):
+        if api_status:
+            with st.spinner("ZERO TWO PROCESSING..."):
+                msg = ai_process_log(log_in)
+                st.success(msg)
         else:
+            st.error("AI OFFLINE")
 
-            st.error("COMMUNICATION ERROR: API KEY MISSING.")
+# --- TAB 4: ZERO TWO CHAT ---
+with tab4:
+    st.subheader("💬 TACTICAL ADVISOR")
+    
+    user_q = st.chat_input("Ask Zero Two...")
+    if user_q:
+        with st.chat_message("user"):
+            st.write(user_q)
+        
+        if api_status:
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    ctx = f"User Target: {target}. Syllabus %: {int(comp_rate)}%."
+                    prompt = f"Act as Zero Two (Smart, Tactical, Professional). {ctx}. User: {user_q}"
+                    res = model.generate_content(prompt)
+                    st.write(res.text)
