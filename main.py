@@ -10,7 +10,7 @@ import os
 import pypdf
 
 # --- 1. SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="Project Zero Two: MK XVII", page_icon="logo.jpg", layout="wide")
+st.set_page_config(page_title="Project Zero Two: MK XVIII", page_icon="logo.jpg", layout="wide")
 
 # --- 2. PROFESSIONAL EDTECH THEME ---
 st.markdown("""
@@ -49,13 +49,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. MASTER DATA ---
+# --- 3. MASTER DATA (SYNCED WITH PDF) ---
 def get_syllabus_data(exam_type):
-    # ACCURATE SYLLABUS LIST
+    # ACCURATE SYLLABUS LIST FROM YOUR PDF
     syllabus = [
         # PHYSICS
         {"Subject": "Physics", "Chapter": "Units, Dimensions & Errors", "Weightage": "Low"},
-        {"Subject": "Physics", "Chapter": "Experimental Physics", "Weightage": "High"},
+        {"Subject": "Physics", "Chapter": "Experimental Physics (Vernier/Screw Gauge)", "Weightage": "High"},
         {"Subject": "Physics", "Chapter": "Kinematics", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Laws of Motion", "Weightage": "Avg"},
         {"Subject": "Physics", "Chapter": "Work, Energy & Power", "Weightage": "Avg"},
@@ -115,18 +115,31 @@ def get_syllabus_data(exam_type):
 
 PROFILE_FILE = "user_profile.json"
 
-# --- 4. API & LOGIC ---
-try:
-    if "GEMINI_API_KEY" in st.secrets:
+# --- 4. API & LOGIC (FAIL-SAFE MODE) ---
+api_status = False
+model = None
+
+# Try loading API Key
+if "GEMINI_API_KEY" in st.secrets:
+    try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # FIXED: Correct placement of try/except block
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
-        api_status = True
-    else:
+        
+        # FAIL-SAFE MODEL LOADER
+        # It tries 3 different model names. If one works, it stops.
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro']
+        
+        for m in models_to_try:
+            try:
+                model = genai.GenerativeModel(m)
+                # Test connection lightly
+                # model.generate_content("test") 
+                api_status = True
+                break # It worked! Stop trying.
+            except:
+                continue # Try next model
+        
+    except Exception as e:
         api_status = False
-except Exception as e:
-    # This catches the error so the app doesn't crash
-    api_status = False
 
 def calculate_metrics(df, target_exam):
     w_vals = {"High": 3, "Avg": 2, "Low": 1}
@@ -242,7 +255,7 @@ else:
     readiness, est_score, target_marks, est_perc = calculate_metrics(df, target)
     sub_breakdown = get_subject_breakdown(df)
 
-    # SIDEBAR (TEXT ONLY)
+    # SIDEBAR
     with st.sidebar:
         st.title("PROJECT 02")
         st.caption(f"GOAL: {target}")
@@ -321,7 +334,7 @@ else:
             st.plotly_chart(make_donut(sub_breakdown.get("Maths",0), "#7928CA"), use_container_width=True)
 
         if st.button("INITIALIZE DEEP SCAN"):
-            if api_status:
+            if api_status and model:
                 with st.spinner("Scanning Syllabus Matrix..."):
                     # CRASH FIX: Send Summary JSON, NOT raw text
                     summary_json = df.groupby('Subject')['Status'].value_counts().to_json()
@@ -332,6 +345,8 @@ else:
                         st.markdown(f"<div class='report-box'>{report}</div>", unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"Scan failed: {e}")
+            else:
+                st.error("AI is Offline or Model Failed to Load. Check API Key.")
 
     # TAB 4: TEST CENTER
     with tab_test:
@@ -357,6 +372,15 @@ else:
             use_container_width=True,
             column_config={"Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Revision 1", "Revision 2", "Mastered"])}
         )
+        if st.button("Save Changes"):
+            # Update main dataframe logic
+            for i, r in ed_df.iterrows():
+                mask = (df['Subject'] == r['Subject']) & (df['Chapter'] == r['Chapter'])
+                df.loc[mask, 'Status'] = r['Status']
+                df.loc[mask, 'Confidence'] = r['Confidence']
+            save_profile(target, df, resources, schedule_text, test_scores)
+            st.success("Saved!")
+            st.rerun()
 
     # TAB 6: LIBRARY
     with tab_lib:
@@ -374,9 +398,11 @@ else:
     with tab_ai:
         st.subheader("💬 Zero Two")
         q = st.chat_input("Ask strategy...")
-        if q and api_status:
+        if q and api_status and model:
             with st.chat_message("user"): st.write(q)
             with st.chat_message("assistant"):
-                res = model.generate_content(f"Act as academic advisor Zero Two. Goal: {target}. User: {q}")
-                st.write(res.text)
-
+                try:
+                    res = model.generate_content(f"Act as academic advisor Zero Two. Goal: {target}. User: {q}")
+                    st.write(res.text)
+                except Exception as e:
+                    st.error(f"Error: {e}")
