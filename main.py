@@ -28,36 +28,78 @@ st.markdown("""
     .stButton>button:hover {
         background: #ff003c; color: white;
     }
-    /* Wizard Container */
-    .wizard-box {
-        border: 1px solid #333; padding: 30px; border-radius: 15px;
-        background: rgba(20,20,20,0.8); text-align: center;
+    div[data-testid="stMetricValue"] {
+        color: #ff003c; font-family: 'Courier New', monospace;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. MASTER DATA (The Syllabus) ---
+# --- 3. MASTER DATA (FULL JEE MAIN SYLLABUS) ---
 FULL_SYLLABUS = [
-    {"Subject": "Physics", "Chapter": "Units & Dimensions"}, {"Subject": "Physics", "Chapter": "Kinematics"},
-    {"Subject": "Physics", "Chapter": "Laws of Motion"}, {"Subject": "Physics", "Chapter": "Work Energy Power"},
-    {"Subject": "Physics", "Chapter": "Rotational Motion"}, {"Subject": "Physics", "Chapter": "Gravitation"},
-    {"Subject": "Physics", "Chapter": "Thermodynamics"}, {"Subject": "Physics", "Chapter": "Electrostatics"},
-    {"Subject": "Physics", "Chapter": "Current Electricity"}, {"Subject": "Physics", "Chapter": "Magnetism"},
-    {"Subject": "Physics", "Chapter": "Ray Optics"}, {"Subject": "Physics", "Chapter": "Wave Optics"},
-    {"Subject": "Physics", "Chapter": "Semiconductors"}, {"Subject": "Physics", "Chapter": "Modern Physics"},
-    {"Subject": "Chemistry", "Chapter": "Mole Concept"}, {"Subject": "Chemistry", "Chapter": "Atomic Structure"},
-    {"Subject": "Chemistry", "Chapter": "Chemical Bonding"}, {"Subject": "Chemistry", "Chapter": "Thermodynamics"},
-    {"Subject": "Chemistry", "Chapter": "Equilibrium"}, {"Subject": "Chemistry", "Chapter": "Electrochemistry"},
-    {"Subject": "Chemistry", "Chapter": "Chemical Kinetics"}, {"Subject": "Chemistry", "Chapter": "Coordination Comp"},
-    {"Subject": "Chemistry", "Chapter": "GOC"}, {"Subject": "Chemistry", "Chapter": "Hydrocarbons"},
-    {"Subject": "Chemistry", "Chapter": "Aldehydes & Ketones"}, {"Subject": "Maths", "Chapter": "Sets & Functions"},
-    {"Subject": "Maths", "Chapter": "Complex Numbers"}, {"Subject": "Maths", "Chapter": "Quadratic Eq"},
-    {"Subject": "Maths", "Chapter": "Matrices & Det"}, {"Subject": "Maths", "Chapter": "Permutation & Comb"},
-    {"Subject": "Maths", "Chapter": "Binomial Thm"}, {"Subject": "Maths", "Chapter": "Sequence & Series"},
-    {"Subject": "Maths", "Chapter": "Limits & Continuity"}, {"Subject": "Maths", "Chapter": "Derivatives"},
-    {"Subject": "Maths", "Chapter": "Integration (Indef)"}, {"Subject": "Maths", "Chapter": "Integration (Def)"},
-    {"Subject": "Maths", "Chapter": "Differential Eq"}, {"Subject": "Maths", "Chapter": "Vectors"},
-    {"Subject": "Maths", "Chapter": "3D Geometry"}, {"Subject": "Maths", "Chapter": "Probability"}
+    # PHYSICS
+    {"Subject": "Physics", "Chapter": "Units & Dimensions", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Kinematics", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "Laws of Motion", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Work, Energy & Power", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "Rotational Motion", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Gravitation", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "Solids & Fluids", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Thermodynamics", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "Kinetic Theory of Gases", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Oscillations & Waves", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "Electrostatics", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Current Electricity", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "Magnetism", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "EMI & AC", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "EM Waves", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Ray Optics", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "Wave Optics", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Dual Nature of Matter", "Confidence": 0},
+    {"Subject": "Physics", "Chapter": "Atoms & Nuclei", "Confidence": 0}, 
+    {"Subject": "Physics", "Chapter": "Semiconductors", "Confidence": 0},
+    
+    # CHEMISTRY
+    {"Subject": "Chemistry", "Chapter": "Mole Concept", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Atomic Structure", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "Chemical Bonding", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Thermodynamics", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "Equilibrium", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Redox Reactions", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "Solutions", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Electrochemistry", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "Chemical Kinetics", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Surface Chemistry", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "Periodicity", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "p-Block Elements", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "d and f Block Elements", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Coordination Compounds", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "GOC", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Hydrocarbons", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "Haloalkanes & Haloarenes", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Alcohols, Phenols, Ethers", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "Aldehydes, Ketones, Carboxylic", "Confidence": 0}, 
+    {"Subject": "Chemistry", "Chapter": "Amines", "Confidence": 0},
+    {"Subject": "Chemistry", "Chapter": "Biomolecules", "Confidence": 0},
+
+    # MATHS
+    {"Subject": "Maths", "Chapter": "Sets, Relations & Functions", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "Complex Numbers", "Confidence": 0},
+    {"Subject": "Maths", "Chapter": "Quadratic Equations", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "Matrices & Determinants", "Confidence": 0},
+    {"Subject": "Maths", "Chapter": "Permutations & Combinations", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "Binomial Theorem", "Confidence": 0},
+    {"Subject": "Maths", "Chapter": "Sequence & Series", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "Limits, Continuity, Diff", "Confidence": 0},
+    {"Subject": "Maths", "Chapter": "Application of Derivatives", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "Indefinite Integration", "Confidence": 0},
+    {"Subject": "Maths", "Chapter": "Definite Integration", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "Differential Equations", "Confidence": 0},
+    {"Subject": "Maths", "Chapter": "Straight Lines & Circles", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "Conic Sections", "Confidence": 0},
+    {"Subject": "Maths", "Chapter": "Vector Algebra", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "3D Geometry", "Confidence": 0},
+    {"Subject": "Maths", "Chapter": "Probability", "Confidence": 0}, 
+    {"Subject": "Maths", "Chapter": "Statistics", "Confidence": 0},
 ]
 PROFILE_FILE = "user_profile.json"
 
@@ -73,16 +115,10 @@ except:
     api_status = False
 
 # --- 5. FUNCTIONS ---
-def save_profile(target, completed_chapters):
-    # Create the dataframe structure
-    df = pd.DataFrame(FULL_SYLLABUS)
-    df['Status'] = 'Pending'
-    # Mark completed
-    df.loc[df['Chapter'].isin(completed_chapters), 'Status'] = 'Mastered'
-    
+def save_profile_from_editor(target, edited_df):
     profile_data = {
         "target": target,
-        "syllabus_data": df.to_dict('records'),
+        "syllabus_data": edited_df.to_dict('records'),
         "setup_complete": True
     }
     with open(PROFILE_FILE, 'w') as f:
@@ -95,6 +131,15 @@ def load_profile():
             return json.load(f)
     return None
 
+def update_profile_file(df_data, target_exam):
+    profile_data = {
+        "target": target_exam,
+        "syllabus_data": df_data.to_dict('records'),
+        "setup_complete": True
+    }
+    with open(PROFILE_FILE, 'w') as f:
+        json.dump(profile_data, f)
+
 def ai_process_log(text):
     prompt = f"Analyze: '{text}'. Identify chapters from JEE syllabus. Return JSON: [{{'Chapter': 'Name', 'Status': 'Mastered'}}]"
     try:
@@ -104,11 +149,10 @@ def ai_process_log(text):
     except:
         return []
 
-# --- 6. SETUP WIZARD LOGIC ---
+# --- 6. SETUP WIZARD (Now with Full Editor) ---
 if 'user_profile' not in st.session_state:
     st.session_state['user_profile'] = load_profile()
 
-# If profile doesn't exist, SHOW WIZARD
 if not st.session_state['user_profile']:
     st.title("🔴 SYSTEM INITIALIZATION")
     st.markdown("Welcome, Pilot. Let's calibrate your system parameters.")
@@ -118,24 +162,49 @@ if not st.session_state['user_profile']:
         target_sel = st.selectbox("Select Mission Goal", ["JEE Main 2026", "AP EAPCET 2026", "BITSAT 2026"])
         
         st.divider()
-        
         st.markdown("### STEP 2: SYLLABUS AUDIT")
-        st.info("Select chapters you have ALREADY completed/revised.")
+        st.info("Mark your current progress. You can edit this later in the Dashboard.")
         
-        # Get list of all chapters
-        all_chaps = [x['Chapter'] for x in FULL_SYLLABUS]
-        completed = st.multiselect("Completed Modules", all_chaps)
+        # Prepare Initial Dataframe
+        if 'wizard_df' not in st.session_state:
+            init_df = pd.DataFrame(FULL_SYLLABUS)
+            init_df['Status'] = 'Pending'
+            st.session_state['wizard_df'] = init_df
+        
+        # FULL EDITOR IN WIZARD
+        edited_wizard_df = st.data_editor(
+            st.session_state['wizard_df'],
+            use_container_width=True,
+            column_config={
+                "Status": st.column_config.SelectboxColumn(
+                    "Status",
+                    options=["Pending", "Revision 1", "Revision 2", "Mastered"],
+                    required=True
+                ),
+                "Confidence": st.column_config.NumberColumn(
+                    "Confidence (%)",
+                    min_value=0, 
+                    max_value=100,
+                    step=5,
+                    format="%d%%"
+                ),
+                "Chapter": st.column_config.TextColumn("Chapter", disabled=True),
+                "Subject": st.column_config.TextColumn("Subject", disabled=True)
+            },
+            hide_index=True,
+            height=500 
+        )
         
         st.divider()
         
         if st.button("INITIALIZE SYSTEM"):
             with st.spinner("SAVING CONFIGURATION..."):
                 time.sleep(1)
-                profile = save_profile(target_sel, completed)
+                profile = save_profile_from_editor(target_sel, edited_wizard_df)
                 st.session_state['user_profile'] = profile
                 st.rerun()
 
-# --- 7. MAIN DASHBOARD (WAR MODE) ---
+# --- 7. MAIN DASHBOARD ---
 else:
     # Load Data
     profile = st.session_state['user_profile']
@@ -146,35 +215,32 @@ else:
     with st.sidebar:
         st.title("🔴 COMMANDER")
         st.caption(f"TARGET: {target_exam}")
-        if st.button("RESET SYSTEM"):
+        if st.button("RESET SYSTEM (CLEAR DATA)"):
             if os.path.exists(PROFILE_FILE):
                 os.remove(PROFILE_FILE)
             st.session_state['user_profile'] = None
             st.rerun()
-            
         st.divider()
         uploaded_file = st.file_uploader("SCHEDULE UPLINK (PDF)", type="pdf")
 
-    # Metrics Calculation
+    # Metrics
     total = len(df)
-    done = len(df[df['Status'] == 'Mastered'])
-    perc = int((done/total)*100)
+    mastered = len(df[df['Status'] == 'Mastered'])
+    revised = len(df[df['Status'].str.contains('Revision', na=False)])
+    perc = int(((mastered + (revised * 0.5))/total)*100)
 
     # UI
     st.title("PROJECT ZERO TWO")
     
-    tab1, tab2, tab3 = st.tabs(["📊 DASHBOARD", "📝 SYLLABUS", "🤖 ZERO TWO"])
+    tab1, tab2, tab3 = st.tabs(["📊 DASHBOARD", "📝 SYLLABUS TRACKER", "🤖 ZERO TWO"])
     
     with tab1:
-        # Glass Cards
         c1, c2, c3 = st.columns(3)
         c1.metric("PREDICTED RANK", "4,200", "Est")
-        c2.metric("SYLLABUS SYNC", f"{perc}%", f"{done}/{total} Chaps")
+        c2.metric("SYLLABUS SYNC", f"{perc}%", f"{mastered} Mastered / {revised} Revised")
         c3.metric("SYSTEM STATUS", "ONLINE", "Ai Linked" if api_status else "Offline")
         
         st.divider()
-        
-        # Log Entry
         st.subheader("⌨️ COMMAND LOG")
         log_txt = st.text_area("Enter Daily Progress", placeholder="I finished Electrostatics today...")
         if st.button("UPLOAD LOG"):
@@ -183,11 +249,7 @@ else:
                 if updates:
                     for u in updates:
                         df.loc[df['Chapter'].str.contains(u['Chapter'], case=False), 'Status'] = u['Status']
-                    
-                    # Save back to file
-                    profile['syllabus_data'] = df.to_dict('records')
-                    with open(PROFILE_FILE, 'w') as f:
-                        json.dump(profile, f)
+                    update_profile_file(df, target_exam)
                     st.success(f"UPDATED {len(updates)} MODULES")
                     st.rerun()
             else:
@@ -195,14 +257,44 @@ else:
 
     with tab2:
         st.subheader("🗂️ MASTER CODEX")
-        sub_view = st.selectbox("Filter", ["Physics", "Chemistry", "Maths"])
-        st.dataframe(
-            df[df['Subject'] == sub_view], 
+        st.info("Edit the Status and Confidence directly in the table below.")
+        
+        sub_view = st.selectbox("FILTER SUBJECT", ["Physics", "Chemistry", "Maths"])
+        
+        filtered_df = df[df['Subject'] == sub_view]
+        
+        # THE EDITABLE TABLE (Dashboard Version)
+        edited_df = st.data_editor(
+            filtered_df,
             use_container_width=True,
             column_config={
-                "Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Mastered"])
-            }
+                "Status": st.column_config.SelectboxColumn(
+                    "Status",
+                    options=["Pending", "Revision 1", "Revision 2", "Mastered"],
+                    required=True
+                ),
+                "Confidence": st.column_config.NumberColumn(
+                    "Confidence (%)",
+                    min_value=0,
+                    max_value=100,
+                    step=5,
+                    format="%d%%"
+                ),
+                "Chapter": st.column_config.TextColumn("Chapter", disabled=True),
+                "Subject": st.column_config.TextColumn("Subject", disabled=True)
+            },
+            hide_index=True
         )
+        
+        if st.button("SAVE CHANGES TO DATABASE"):
+            for index, row in edited_df.iterrows():
+                mask = (df['Subject'] == row['Subject']) & (df['Chapter'] == row['Chapter'])
+                df.loc[mask, 'Status'] = row['Status']
+                df.loc[mask, 'Confidence'] = row['Confidence']
+            
+            update_profile_file(df, target_exam)
+            st.success("DATABASE SYNCHRONIZED")
+            st.rerun()
         
     with tab3:
         st.subheader("💬 TACTICAL ADVISOR")
