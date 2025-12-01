@@ -9,10 +9,9 @@ import json
 import os
 
 # --- 1. SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="Project Zero Two", page_icon="logo.jpg", layout="wide")
+st.set_page_config(page_title="FRANXX XXX", page_icon="logo.jpg", layout="wide")
 
-# --- 2. GLOBAL THEME ENGINE (FIXED SCOPE) ---
-# This runs immediately to ensure variables exist for graphs
+# --- 2. GLOBAL THEME ENGINE ---
 if 'theme_choice' not in st.session_state:
     st.session_state['theme_choice'] = "Zero Two (Dark)"
 
@@ -30,7 +29,6 @@ def get_theme_vars(theme_name):
 
 theme = get_theme_vars(st.session_state['theme_choice'])
 
-# Apply CSS
 st.markdown(f"""
 <style>
     .stApp {{ background-color: {theme['bg']}; color: {theme['text']}; }}
@@ -42,14 +40,14 @@ st.markdown(f"""
     div[data-testid="stMetricValue"] {{ color: {theme['accent']}; }}
     .stButton>button {{ color: {theme['accent']}; border: 1px solid {theme['accent']}; background: transparent; }}
     div[data-testid="stContainer"] {{ border: 1px solid #333; background-color: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; }}
-    /* Custom Checkbox Style */
     .stCheckbox label {{ color: {theme['text']}; font-weight: bold; }}
+    /* Hide the sidebar decoration */
+    section[data-testid="stSidebar"] > div {{ padding-top: 2rem; }}
 </style>
 """, unsafe_allow_html=True)
 
 # --- 3. MASTER DATA ---
 def get_syllabus_data(exam_type):
-    # ACCURATE SYLLABUS LIST
     syllabus = [
         {"Subject": "Physics", "Chapter": "Units & Dimensions", "Weightage": "Low"},
         {"Subject": "Physics", "Chapter": "Experimental Physics", "Weightage": "High"},
@@ -185,6 +183,15 @@ def save_profile(target, df_data, daily_tasks=None, history=None, mistakes=None)
     with open(PROFILE_FILE, 'w') as f: json.dump(data, f)
     return data
 
+def ai_process_log(text, current_syllabus):
+    valid_chaps = [x['Chapter'] for x in current_syllabus]
+    prompt = f"Analyze: '{text}'. Match to: {valid_chaps}. Return valid JSON list: [{{'Chapter': 'Name', 'Status': 'Mastered'}}]"
+    try:
+        response = model.generate_content(prompt)
+        clean = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean)
+    except: return []
+
 # --- 6. MAIN APPLICATION ---
 if 'user_profile' not in st.session_state:
     st.session_state['user_profile'] = load_profile()
@@ -213,7 +220,6 @@ else:
     df = pd.DataFrame(profile['syllabus_data'])
     history = profile.get('history', [])
     mistakes = profile.get('mistakes', [])
-    # NEW: Manual Tasks List
     if 'daily_tasks' not in st.session_state:
         st.session_state['daily_tasks'] = profile.get('daily_tasks', [])
     
@@ -227,7 +233,7 @@ else:
 
     # SIDEBAR
     with st.sidebar:
-        st.title("PROJECT 02")
+        st.title("FRANXX XXX")
         
         # THEME TOGGLE (Updates Session State -> Triggers Rerun)
         new_theme = st.radio("Theme", ["Zero Two (Dark)", "EdTech (Light)"], index=0 if st.session_state['theme_choice'] == "Zero Two (Dark)" else 1)
@@ -236,17 +242,22 @@ else:
             st.rerun()
             
         st.divider()
-        if st.button("Reset App (Delete Data)"):
-            os.remove(PROFILE_FILE)
-            st.session_state['user_profile'] = None
-            st.rerun()
+        uploaded_file = st.file_uploader("Schedule PDF", type="pdf")
+        
+        st.divider()
+        # HIDDEN RESET
+        with st.expander("⚠️ Advanced System"):
+            if st.button("Factory Reset (Clear All Data)"):
+                os.remove(PROFILE_FILE)
+                st.session_state['user_profile'] = None
+                st.rerun()
 
     # TABS
     tab_home, tab_analytics, tab_syll, tab_mistakes, tab_ai = st.tabs(
         ["🏠 HOME", "📊 ANALYTICS", "📝 SYLLABUS", "🩸 MISTAKE AUTOPSY", "💬 ZERO TWO"]
     )
 
-    # TAB 1: HOME (Manual Goals)
+    # TAB 1: HOME (Manual Goals + AI Log)
     with tab_home:
         with st.container():
             c1, c2, c3 = st.columns(3)
@@ -256,13 +267,13 @@ else:
         
         st.divider()
         
-        # MANUAL MISSION CONTROL
-        st.subheader("📝 Mission Control (Daily Targets)")
+        # --- 1. MANUAL MISSION CONTROL ---
+        st.subheader("📝 Mission Checklist (Manual)")
         
         c_add, c_list = st.columns([1, 2])
         
         with c_add:
-            new_task = st.text_input("New Task", placeholder="Ex: Solve 20 Physics PYQs")
+            new_task = st.text_input("New Mission", placeholder="Ex: Solve 20 Physics PYQs")
             if st.button("Add Mission"):
                 if new_task:
                     st.session_state['daily_tasks'].append({"task": new_task, "done": False})
@@ -274,7 +285,6 @@ else:
                 for i, t in enumerate(st.session_state['daily_tasks']):
                     col_chk, col_del = st.columns([8, 1])
                     with col_chk:
-                        # Checkbox updates state
                         is_done = st.checkbox(t['task'], value=t['done'], key=f"task_{i}")
                         if is_done != t['done']:
                             st.session_state['daily_tasks'][i]['done'] = is_done
@@ -285,17 +295,28 @@ else:
                             st.session_state['daily_tasks'].pop(i)
                             save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
                             st.rerun()
-                
-                # Progress Bar for tasks
-                done_count = sum(1 for t in st.session_state['daily_tasks'] if t['done'])
-                total_count = len(st.session_state['daily_tasks'])
-                if total_count > 0:
-                    st.progress(done_count / total_count)
-                    st.caption(f"{done_count}/{total_count} Missions Complete")
             else:
-                st.info("No active missions. Add one to begin.")
+                st.info("No active missions.")
 
-    # TAB 2: ANALYTICS (Graphs with Global Colors)
+        st.divider()
+
+        # --- 2. AI COMMAND LOG (Restored) ---
+        st.subheader("🤖 AI Command Log")
+        st.caption("Tell the system what you finished. It will auto-update the Syllabus.")
+        log_in = st.text_area("Mission Report", placeholder="I finished Electrostatics revision...")
+        if st.button("Process Report"):
+            if api_status:
+                ups = ai_process_log(log_in, profile['syllabus_data'])
+                if ups:
+                    for u in ups:
+                        df.loc[df['Chapter'].str.contains(u['Chapter'], case=False), 'Status'] = u['Status']
+                    save_profile(target, df, st.session_state['daily_tasks'], history, mistakes)
+                    st.success(f"Updated {len(ups)} Chapters!")
+                    st.rerun()
+            else:
+                st.error("AI Offline")
+
+    # TAB 2: ANALYTICS
     with tab_analytics:
         st.subheader("🚀 Goal Analysis")
         c1, c2 = st.columns([2, 1])
@@ -383,7 +404,7 @@ else:
         else:
             st.info("No mistakes logged yet.")
 
-    # TAB 5: MENTOR (Zero Two Aware)
+    # TAB 5: MENTOR
     with tab_ai:
         st.subheader("💬 Zero Two")
         q = st.chat_input("Ask strategy...")
