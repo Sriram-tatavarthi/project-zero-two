@@ -9,7 +9,7 @@ import json
 import os
 
 # --- 1. SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="FRANXX XXX", page_icon="logo.jpg", layout="wide")
+st.set_page_config(page_title="FRANXX", page_icon="logo.jpg", layout="wide")
 
 # --- 2. GLOBAL THEME ENGINE ---
 if 'theme_choice' not in st.session_state:
@@ -233,7 +233,7 @@ else:
 
     # SIDEBAR
     with st.sidebar:
-        st.title("FRANXX XXX")
+        st.title("FRANXX")
         
         # THEME TOGGLE (Updates Session State -> Triggers Rerun)
         new_theme = st.radio("Theme", ["Zero Two (Dark)", "EdTech (Light)"], index=0 if st.session_state['theme_choice'] == "Zero Two (Dark)" else 1)
@@ -423,3 +423,4 @@ else:
                     res = model.generate_content(f"Act as academic strategist Zero Two. {context}. User: {q}")
                     st.write(res.text)
                 except: st.error("AI Error")
+
