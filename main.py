@@ -170,7 +170,7 @@ if 'user_profile' not in st.session_state:
     st.session_state['user_profile'] = load_profile()
 
 if not st.session_state['user_profile']:
-    st.title("🔴 MK X INITIALIZATION")
+    st.title("MK-X INITIALIZATION")
     st.markdown("### DYNAMIC CALIBRATION")
     
     target_sel = st.selectbox(
@@ -219,9 +219,11 @@ else:
     
     readiness = calculate_metrics(df, target)
     
-    # SIDEBAR
+   # SIDEBAR
     with st.sidebar:
-        st.title("🔴 COMMANDER")
+        # LOGO UPDATE: No text, just the big image
+        st.image("logo.jpg", use_container_width=True) 
+        
         st.caption(f"TARGET: {target}")
         
         if st.button("CHANGE MISSION (RESET)"):
@@ -236,7 +238,7 @@ else:
         st.markdown("### VITALITY")
         energy = st.slider("Energy", 0, 100, 80)
         if energy < 40: st.error("REST REQUIRED")
-
+            
     # MAIN UI
     st.title(f"PROJECT ZERO TWO: {target.upper()}")
     
@@ -302,5 +304,6 @@ else:
                 prompt = f"Act as Zero Two (Strategic AI). Exam: {target}. Readiness: {readiness}%. User: {q}"
                 res = model.generate_content(prompt)
                 st.write(res.text)
+
 
 
