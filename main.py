@@ -336,11 +336,11 @@ else:
         
         c1, c2 = st.columns([2, 1])
         with c1:
-            # GOAL GAP CHART
+            # GOAL GAP CHART (FIXED SYNTAX)
             gap_fig = go.Figure()
             gap_fig.add_trace(go.Bar(y=['Score'], x=[est_score], name='Current', orientation='h', marker_color='#007CF0'))
             gap_fig.add_trace(go.Bar(y=['Score'], x=[target_marks], name=f'Target ({target})', orientation='h', marker_color='#00DFD8', opacity=0.5))
-            gap_fig.update_layout(barmode='overlay', height=250, bg_color='rgba(0,0,0,0)')
+            gap_fig.update_layout(barmode='overlay', height=250, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(gap_fig, use_container_width=True)
             
         with c2:
@@ -352,7 +352,7 @@ else:
         
         cp1, cp2, cp3 = st.columns(3)
         def donut(val, color):
-            return go.Figure(data=[go.Pie(values=[val, 100-val], hole=.7, marker_colors=[color, '#333'])]).update_layout(showlegend=False, height=120, margin=dict(t=0,b=0,l=0,r=0))
+            return go.Figure(data=[go.Pie(values=[val, 100-val], hole=.7, marker_colors=[color, '#333'])]).update_layout(showlegend=False, height=120, margin=dict(t=0,b=0,l=0,r=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         
         with cp1: 
             st.write("Physics"); st.plotly_chart(donut(sub_breakdown.get("Physics",0), "#007CF0"), use_container_width=True)
