@@ -4,18 +4,20 @@ import datetime
 from datetime import date, timedelta
 import google.generativeai as genai
 import plotly.graph_objects as go
-import plotly.express as px
 import time
 import json
 import os
 import pypdf
 
 # --- 1. SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="Project Zero Two: MK XV", page_icon="logo.jpg", layout="wide")
+st.set_page_config(page_title="Project Zero Two: MK XVI", page_icon="logo.jpg", layout="wide")
 
-# --- 2. TITAN EDTECH THEME ---
+# --- 2. PROFESSIONAL EDTECH THEME ---
 st.markdown("""
 <style>
+    /* Global Background */
+    .stApp { background-color: #0e1117; }
+    
     /* Gradient Headers */
     h1, h2, h3 { 
         background: -webkit-linear-gradient(0deg, #007CF0, #00DFD8);
@@ -23,31 +25,26 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         font-family: 'Helvetica Neue', sans-serif;
         font-weight: 800;
-        letter-spacing: -1px;
     }
     
     /* Metrics */
     div[data-testid="stMetricValue"] {
-        font-size: 28px; color: #007CF0; font-weight: 700;
+        font-size: 26px; color: #007CF0; font-weight: bold;
     }
     
     /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; border-bottom: 1px solid #333; }
     .stTabs [data-baseweb="tab"] {
-        height: 45px; font-weight: 600; color: #666; border-radius: 5px;
+        height: 50px; font-weight: 600; color: #888;
     }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        color: #007CF0; background-color: rgba(0, 124, 240, 0.1); border-bottom: 2px solid #007CF0;
+        color: #007CF0; border-bottom: 3px solid #007CF0;
     }
     
-    /* Containers */
-    .stContainer {
-        border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px;
-    }
-    
-    /* Progress Bar */
-    .stProgress > div > div > div > div {
-        background-image: linear-gradient(to right, #007CF0, #00DFD8);
+    /* AI Report Box */
+    .report-box {
+        padding: 20px; border-radius: 10px; background: rgba(0, 124, 240, 0.1);
+        border-left: 5px solid #007CF0; margin-top: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -130,7 +127,6 @@ except:
     api_status = False
 
 def calculate_metrics(df, target_exam):
-    # Weightage Logic
     w_vals = {"High": 3, "Avg": 2, "Low": 1}
     df['W_Score'] = df['Weightage'].map(w_vals)
     df['Earned'] = 0.0
@@ -140,30 +136,39 @@ def calculate_metrics(df, target_exam):
         elif row['Status'] == 'Revision 2': val = 0.8
         elif row['Status'] == 'Revision 1': val = 0.5
         df.at[i, 'Earned'] = val * row['W_Score']
-    
     total = df['W_Score'].sum()
     earned = df['Earned'].sum()
     readiness = int((earned/total)*100) if total > 0 else 0
     
-    # Advanced Predictions
     total_marks = 300 if "JEE" in target_exam else 160
-    
-    # Targets (IIT-H CSE is extremely high)
-    target_marks = 240 if "JEE" in target_exam else 140 
-    
+    target_marks = 240 if "JEE" in target_exam else 130
     est_score = int(total_marks * (readiness / 100))
     
-    # Percentile Est (Rough Model)
     if "JEE" in target_exam:
         if est_score > 250: est_perc = "99.9%ile"
         elif est_score > 200: est_perc = "99.5%ile"
         elif est_score > 150: est_perc = "97.0%ile"
-        elif est_score > 100: est_perc = "93.0%ile"
         else: est_perc = "< 90%ile"
     else:
         est_perc = "N/A (Rank Based)"
         
     return readiness, est_score, target_marks, est_perc
+
+def get_subject_breakdown(df):
+    data = {}
+    for sub in ["Physics", "Chemistry", "Maths"]:
+        sub_df = df[df['Subject'] == sub]
+        if not sub_df.empty:
+            w = sub_df['Weightage'].map({"High":3, "Avg":2, "Low":1}).sum()
+            e = 0
+            for _, r in sub_df.iterrows():
+                val = 0
+                if r['Status'] == 'Mastered': val = 1
+                elif r['Status'] == 'Revision 2': val = 0.8
+                elif r['Status'] == 'Revision 1': val = 0.5
+                e += val * (3 if r['Weightage']=='High' else 2 if r['Weightage']=='Avg' else 1)
+            data[sub] = int((e/w)*100) if w > 0 else 0
+    return data
 
 def load_profile():
     if os.path.exists(PROFILE_FILE):
@@ -204,7 +209,6 @@ if 'user_profile' not in st.session_state:
 
 if not st.session_state['user_profile']:
     st.title("🚀 SYSTEM INITIALIZATION")
-    st.markdown("### Welcome to Project Zero Two")
     target_sel = st.selectbox("Select Goal", ["JEE Main 2026", "JEE Advanced 2026", "AP EAPCET 2026"])
     
     if 'wizard_df' not in st.session_state or st.session_state.get('last_wiz_target') != target_sel:
@@ -234,10 +238,11 @@ else:
     schedule_text = profile.get('schedule_text', "No schedule uploaded.")
     
     readiness, est_score, target_marks, est_perc = calculate_metrics(df, target)
+    sub_breakdown = get_subject_breakdown(df)
 
-    # SIDEBAR
+    # SIDEBAR (TEXT ONLY)
     with st.sidebar:
-        st.image("logo.jpg", use_container_width=True)
+        st.title("PROJECT 02")
         st.caption(f"GOAL: {target}")
         if st.button("Change Goal"):
             os.remove(PROFILE_FILE)
@@ -277,13 +282,11 @@ else:
                         st.success("Updated!")
                         st.rerun()
 
-    # TAB 2: PREDICTIONS (Goal Gap)
+    # TAB 2: PREDICTIONS
     with tab_pred:
         st.subheader("🚀 Goal Gap Analysis")
         c1, c2 = st.columns([2, 1])
-        
         with c1:
-            # GAP CHART
             gap_fig = go.Figure()
             gap_fig.add_trace(go.Bar(
                 y=['Score'], x=[est_score], name='You', orientation='h', marker_color='#007CF0'
@@ -293,30 +296,42 @@ else:
             ))
             gap_fig.update_layout(title="You vs IIT Hyderabad Cutoff", barmode='overlay', height=250)
             st.plotly_chart(gap_fig, use_container_width=True)
-            
         with c2:
             st.warning(f"GAP: {target_marks - est_score} Marks")
-            st.write("You need to master approximately **12 more High-Weightage chapters** to bridge this gap.")
 
-    # TAB 3: ANALYTICS (Deep AI)
+    # TAB 3: ANALYTICS (FIXED DEEP SCAN)
     with tab_analy:
         st.subheader("🧠 Deep Analysis")
+        # Donut Charts
+        c_p1, c_p2, c_p3 = st.columns(3)
+        def make_donut(val, color):
+            fig = go.Figure(data=[go.Pie(labels=['Done', 'Left'], values=[val, 100-val], hole=.7, marker_colors=[color, '#eee'])])
+            fig.update_layout(showlegend=False, margin=dict(t=0,b=0,l=0,r=0), height=140)
+            return fig
+        with c_p1:
+            st.write("Physics")
+            st.plotly_chart(make_donut(sub_breakdown.get("Physics",0), "#007CF0"), use_container_width=True)
+        with c_p2:
+            st.write("Chemistry")
+            st.plotly_chart(make_donut(sub_breakdown.get("Chemistry",0), "#00DFD8"), use_container_width=True)
+        with c_p3:
+            st.write("Maths")
+            st.plotly_chart(make_donut(sub_breakdown.get("Maths",0), "#7928CA"), use_container_width=True)
+
         if st.button("INITIALIZE DEEP SCAN"):
             if api_status:
                 with st.spinner("Scanning Syllabus Matrix..."):
-                    # Create summary for AI
-                    summary = df[df['Status']!='Pending'][['Subject', 'Chapter', 'Status']].to_string()
-                    prompt = f"Analyze this student's progress. Goal: {target}. Completed: {summary}. Identify weak subjects and give 3 specific actionable steps to improve score."
-                    report = model.generate_content(prompt).text
-                    st.success("Report Generated")
-                    st.markdown(report)
-        
-        # Heatmap / Subject Breakdown
-        st.divider()
-        st.write("### Syllabus Coverage Heatmap")
-        st.dataframe(df.style.applymap(lambda v: 'background-color: #d4edda' if v=='Mastered' else '', subset=['Status']), use_container_width=True)
+                    # CRASH FIX: Send Summary JSON, NOT raw text
+                    summary_json = df.groupby('Subject')['Status'].value_counts().to_json()
+                    prompt = f"Analyze progress: {summary_json}. Goal: {target}. Identify weak subjects and give 3 strategic actions."
+                    try:
+                        report = model.generate_content(prompt).text
+                        st.success("Report Generated")
+                        st.markdown(f"<div class='report-box'>{report}</div>", unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"Scan failed: {e}")
 
-    # TAB 4: TEST CENTER (New)
+    # TAB 4: TEST CENTER
     with tab_test:
         st.subheader("📝 Mock Test Logs")
         with st.expander("Log New Score"):
@@ -327,20 +342,19 @@ else:
                 test_scores.append({"date": str(t_date), "score": t_score, "type": t_type})
                 save_profile(target, df, resources, schedule_text, test_scores)
                 st.rerun()
-        
         if test_scores:
             ts_df = pd.DataFrame(test_scores)
             st.line_chart(ts_df.set_index('date')['score'])
-            st.dataframe(ts_df)
 
     # TAB 5: SYLLABUS
     with tab_syll:
         st.subheader("🗂️ Codex")
         sub = st.selectbox("Filter", ["Physics", "Chemistry", "Maths"])
-        ed_df = st.data_editor(df[df['Subject'] == sub], use_container_width=True)
-        if st.button("Save Codex"):
-            # Logic to merge back would go here (Simplified for length)
-            st.warning("Save feature active in full version (requires merging logic).")
+        ed_df = st.data_editor(
+            df[df['Subject'] == sub], 
+            use_container_width=True,
+            column_config={"Status": st.column_config.SelectboxColumn("Status", options=["Pending", "Revision 1", "Revision 2", "Mastered"])}
+        )
 
     # TAB 6: LIBRARY
     with tab_lib:
@@ -361,5 +375,5 @@ else:
         if q and api_status:
             with st.chat_message("user"): st.write(q)
             with st.chat_message("assistant"):
-                res = model.generate_content(f"Act as academic strategist Zero Two. Goal: {target}. User: {q}")
+                res = model.generate_content(f"Act as academic advisor Zero Two. Goal: {target}. User: {q}")
                 st.write(res.text)
